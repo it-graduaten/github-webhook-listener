@@ -1,2 +1,5 @@
 install:
   - py -m pip install flask
+
+deploy_script:
+ - python index.py
