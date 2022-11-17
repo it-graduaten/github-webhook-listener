@@ -1,5 +1,6 @@
 install:
   - py -m pip install flask
-build_script: 
-  - ps: | 
-    python index.py
+
+build_script:
+   - ps: |  
+      python index.py
