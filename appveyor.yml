@@ -1,0 +1,2 @@
+install:
+  - py -m pip install flask
