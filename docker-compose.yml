@@ -1,0 +1,6 @@
+version: "3.9"
+services:
+  randomizer-service:
+    image: jorensynaevetm/github-webhook-listener
+    ports:
+      - "8000:8000"
