@@ -5,6 +5,6 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - CG_PASSWORD=
-      - CG_USERNAME=
-      - GITHUB_ACCESS_TOKEN=
+      - CG_PASSWORD=${CG_PASSWORD}
+      - CG_USERNAME=${CG_USERNAME}
+      - GITHUB_ACCESS_TOKEN=${GITHUB_ACCESS_TOKEN}
