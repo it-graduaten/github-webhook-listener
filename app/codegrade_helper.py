@@ -1,14 +1,10 @@
 import json
 import codegrade
-import requests
 import os
 import re
 import shutil
 import codegrade.models as cgmodels
-import tkinter as tk
-from tkinter import filedialog
 from codegrade.models import PatchCourseData
-from requests.structures import CaseInsensitiveDict
 from codegrade.models import CreateAutoTestData, JsonCreateAutoTest, PutRubricAssignmentData, UpdateSuiteAutoTestData, RunProgramInputAsJSON, RunProgramData, UpdateSetAutoTestData
 from codegrade.models.types import File
 import github_helper
