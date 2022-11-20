@@ -38,11 +38,16 @@ def handle_payload(parent_dirs: list):
 
 @app.post('/oop') 
 async def oop_root(payload: GithubPushPayload, background_tasks: BackgroundTasks):
-    output = []
+    output = ["Received push event from OOP repository"]
     updated_files = json_helper.get_changed_and_added_files(payload.commits)
     parent_dirs = json_helper.get_parent_dirs(updated_files)
+
+    # Add updated files to output
+    output.append("Updated files:")
+    for file in updated_files:
+        output.append(file)
 
     # For each 'config.json' file, get the contents and add it to the list
     background_tasks.add_task(handle_payload, parent_dirs)
              
-    return "Ok"
+    return output
