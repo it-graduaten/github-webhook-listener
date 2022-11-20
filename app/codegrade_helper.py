@@ -221,7 +221,7 @@ def create_autotest(assignment, files):
     res = client.auto_test.create(multipart_data=data)
     # Close all files
     for f in files:
-        f.close()
+        f.payload.close()
     return res.id
 
 def create_compilation_level(auto_test_id, compilation_rubric_row_id):
