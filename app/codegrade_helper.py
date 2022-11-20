@@ -8,6 +8,7 @@ from codegrade.models import PatchCourseData
 from codegrade.models import CreateAutoTestData, JsonCreateAutoTest, PutRubricAssignmentData, UpdateSuiteAutoTestData, RunProgramInputAsJSON, RunProgramData, UpdateSetAutoTestData
 from codegrade.models.types import File
 import github_helper
+import debug_helper
 
 with codegrade.login(
             username=os.getenv("CG_USERNAME"),
@@ -40,18 +41,18 @@ def delete_existing_autotest(assignment_id):
         res = client.auto_test.get(auto_test_id=current_auto_test_id)
         # Stop current autotest run if it is running
         if len(res.runs) == 1:
-            print("Stopping auto test..")
+            debug_helper.print_info("Stopping current autotest run..")
             current_run_id = res.runs[0].id
             res = client.auto_test.stop_run(
                 auto_test_id=current_auto_test_id, run_id=current_run_id)
-        print("Deleting auto test..")
+        debug_helper.print_info("Stopping current autotest run..")
         client.auto_test.delete(auto_test_id=current_auto_test_id)
 
     try:
-        print("Deleting rubric..")
+        debug_helper.print_info("Deleting rubric..")
         res = client.assignment.delete_rubric(assignment_id=assignment_id)
     except:
-        print("No rubric to delete")
+        debug_helper.print_info("No rubric to delete")
 
 def get_test_configurations(resources_dir):
     test_configs = []
@@ -159,7 +160,7 @@ def create_rubrics(assignment, test_configurations):
         })
 
     # Create rubric and get ID's of rubric rows in order of creation
-    print("Creating rubric..")
+    debug_helper.print_info("Creating rubric..")
     res = client.assignment.put_rubric(json_body=rubric, assignment_id=assignment.id)
     rubric_row_ids = []
     for r in res:
@@ -205,7 +206,7 @@ def create_test_suite(rubric_row_id, test_dict):
     return test_suite
 
 def create_autotest(assignment, files):
-    print("Creating autotest configruation..")
+    debug_helper.print_info("Creating autotest configruation..")
     data = codegrade.models.CreateAutoTestData(
         json=codegrade.models.json_create_auto_test.JsonCreateAutoTest(
             assignment_id=assignment.id,
@@ -243,7 +244,7 @@ def create_compilation_level(auto_test_id, compilation_rubric_row_id):
 
 def create_unittest_level(auto_test_id, test_rubric_ids, test_configurations):
     del test_rubric_ids[0]
-    print("Creating suite with steps..")
+    debug_helper.print_info("Creating suite with steps..")
     res = client.auto_test.add_set(auto_test_id=auto_test_id)
     for idx in range(len(test_configurations)):
         test_suite = create_test_suite(rubric_row_id=test_rubric_ids[idx], test_dict=test_configurations[idx])
@@ -252,7 +253,7 @@ def create_unittest_level(auto_test_id, test_rubric_ids, test_configurations):
 
 def start_autotest(auto_test_id):
     # Start the autotest
-    print("Starting autotest..")
+    debug_helper.print_info("Starting autotest..")
     res = client.auto_test.start_run(auto_test_id=auto_test_id)
 
 def create_zip_file(dir):

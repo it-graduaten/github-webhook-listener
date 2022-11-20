@@ -1,5 +1,6 @@
 import shutil
 import os
+import debug_helper
 
 def delete_all_content(dir):
     """ Deletes all the content of a directory """
@@ -12,11 +13,10 @@ def delete_all_content(dir):
                 # Check if the file is a directory
                 if os.path.isdir(dir + "/" + content):
                     try:
-                        print("Deleting " + content)
-                    # If so, delete the directory
+                        # If so, delete the directory
                         shutil.rmtree(dir)
                     except:
-                        print("Error while deleting " + content)
+                        debug_helper.print_error("Error while deleting " + content)
 
 def make_dir(dir):
     """ Creates a directory if it does not exist """
