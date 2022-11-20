@@ -3,6 +3,9 @@ import json
 import os
 
 # using an access token
+print("Logging in to Github")
+print(os.getenv("GITHUB_ACCESS_TOKEN"))
+
 g = Github(os.getenv("GITHUB_ACCESS_TOKEN"))
 repo = g.get_repo('it-graduaten/Objectgeorienteerd-Programmeren')
 

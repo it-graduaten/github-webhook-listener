@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import BackgroundTasks, FastAPI
 from pydantic import BaseModel
 import json_helper
 import github_helper
@@ -17,13 +17,7 @@ class GithubPushPayload(BaseModel):
 async def root():
     return 'Hello World!'
 
-@app.post('/oop') 
-async def oop_root(payload: GithubPushPayload):
-    output = []
-    updated_files = json_helper.get_changed_and_added_files(payload.commits)
-    parent_dirs = json_helper.get_parent_dirs(updated_files)
-
-    # For each 'config.json' file, get the contents and add it to the list
+def handle_payload(parent_dirs: list):
     for dir in parent_dirs:
         # Check if the parent directory contains a 'config.json' file
         is_assignment = github_helper.is_assignment_dir(dir)
@@ -39,10 +33,16 @@ async def oop_root(payload: GithubPushPayload):
                 assignment = codegrade_helper.check_if_codegrade_assignment_exists(assignment_name, course_id)
                 if assignment is not None:
                     codegrade_helper.update_codegrade_assignment(assignment, [], os.path.join(course_constants.TEMP_DIR, dir))
-                    output.append('Updated assignment ' + assignment_name + ' on CodeGrade in course ' + str(course_id))
-                else:
-                    output.append("Assignment " + assignment_name + " does not exist on Codegrade. Did not configure.")
             # Delete all contents in the temp folder
             file_helper.delete_all_content(course_constants.TEMP_DIR)
+
+@app.post('/oop') 
+async def oop_root(payload: GithubPushPayload, background_tasks: BackgroundTasks):
+    output = []
+    updated_files = json_helper.get_changed_and_added_files(payload.commits)
+    parent_dirs = json_helper.get_parent_dirs(updated_files)
+
+    # For each 'config.json' file, get the contents and add it to the list
+    background_tasks.add_task(handle_payload, parent_dirs)
              
-    return output
+    return "Ok"
