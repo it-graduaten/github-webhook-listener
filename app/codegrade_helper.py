@@ -210,7 +210,7 @@ def create_autotest(assignment, files):
     data = codegrade.models.CreateAutoTestData(
         json=codegrade.models.json_create_auto_test.JsonCreateAutoTest(
             assignment_id=assignment.id,
-            setup_script="\"$FIXTURES\"/setup.sh;",
+            setup_script="\"$FIXTURES\"/setup.sh; dotnet restore models;",
             run_setup_script=f"unzip codegrade_temp.zip && cg-xunit install_extra test/",
             has_new_fixtures=True,
             enable_caching=True,
