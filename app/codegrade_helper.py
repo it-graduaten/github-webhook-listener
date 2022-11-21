@@ -248,8 +248,7 @@ def create_unittest_level(auto_test_id, test_rubric_ids, test_configurations):
     res = client.auto_test.add_set(auto_test_id=auto_test_id)
     for idx in range(len(test_configurations)):
         test_suite = create_test_suite(rubric_row_id=test_rubric_ids[idx], test_dict=test_configurations[idx])
-        res = client.auto_test.update_suite(
-            json_body=test_suite, auto_test_id=auto_test_id, set_id=res.id)
+        client.auto_test.update_suite(json_body=test_suite, auto_test_id=auto_test_id, set_id=res.id)
 
 def start_autotest(auto_test_id):
     # Start the autotest
