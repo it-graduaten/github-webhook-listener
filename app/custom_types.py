@@ -1,4 +1,9 @@
 from pydantic import BaseModel
+from typing import TypedDict
+
+ClassroomRoster = TypedDict('ClassroomRoster', {'identifier': str, 'github_username': str, 'github_id': str, 'name': str})
+
+TestRunResult = TypedDict('TestRunResult', {'assignment': str, 'total': int, 'errors': int, 'grade': float, 'run_at_utc_datetime': str, 'should_update_canvas': bool})
 
 class Repository(BaseModel):
     name: str

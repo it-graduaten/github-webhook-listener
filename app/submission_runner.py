@@ -8,7 +8,6 @@ from test_runner import TestRunner
 from file_operations import FileOperations
 from github_helper import GithubHelper
 from canvas_helper import CanvasManager
-from logger import Logger
 import pytz
 import argparse
 import concurrent.futures
@@ -46,15 +45,15 @@ class SubmissionRunner:
     kSolution_repo_name: Final[str] = 'OOP-SolutionRepo'
     kSolution_repo_path: Final[str] = f'./solution-repo'
 
-    def __init__(self, logfile_name: str):
+    def __init__(self, logger):
         # Init classes
-        logfile_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log"
-        self.logger = Logger(logfile_name)
+        self.logger = logger
+        # logfile_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log"
+        # self.logger = Logger(logfile_name)
         self.test_runner = TestRunner(self.logger)
         self.file_ops = FileOperations(self.logger)
         self.github_helper = GithubHelper(self.logger)
         self.canvas_manager = CanvasManager(self.logger)
-        self.classroom_roster = self.get_classroom_roster()  
         self.utc = pytz.UTC
 
     
@@ -63,12 +62,12 @@ class SubmissionRunner:
         Read the classroom roster to get a link between the student identifier and the GitHub username and convert it to
         a dict so that we have O(1) lookup based on the students GitHub username.
         """
-        self.classroom_roster = self.file_ops.get_classroom_roster()
-        if self.classroom_roster is None:
-            self.logger.write_to_log_file("Classroom roster not found")
+        classroom_roster = self.file_ops.get_classroom_roster()
+        if classroom_roster is None:
+            self.logger.debug("Classroom roster not found")
             exit()
 
-        return {student['github_username']: student for student in self.classroom_roster}      
+        return {student['github_username']: student for student in classroom_roster}      
 
     def run_tests_for_student(self, repo_name: str, changed_exercises) -> None:
         """
@@ -76,25 +75,25 @@ class SubmissionRunner:
 
         Parameters
         ----------
-        kTest_repo_path : str
-            The filesystem destination path where the repo will be written to.
-        test_repo : str
-            The GitHub URL for the student's repository.
-        student_identifier: str
-            The LMS identification number for the student, typically something like r0636326.
+        repo_name : str
+            The name of the repository where the update was pushed to.
+        changed_exercises : list[str]
+            A list of exercises that were changed in the repo.
         """
-
         # Get github_username of the repo, which is all parts after the first '-',
         # because GitHub classroom appends the github_username to the repo name
         github_username = repo_name.split('-')[1]
 
+        # Get the classroom roster
+        classroom_roster = self.get_classroom_roster()
+
         # Get the student identifier based on the github_username
         # If the student is not found, skip the repo
-        if github_username not in self.classroom_roster:
-            self.logger.write_to_log_file(f"Student with github_username {github_username} not found")
+        if github_username not in classroom_roster:
+            self.logger.debug(f"Student with github_username {github_username} not found")
             exit()
 
-        student = self.classroom_roster[github_username]
+        student = classroom_roster[github_username]
         student_identifier = student['identifier']
 
         kTest_repo_path = f'./student-repos/{repo_name}'
@@ -109,12 +108,8 @@ class SubmissionRunner:
                 """ Get a list of the exercises that should be graded """
                 all_exercises = self.canvas_manager.get_all_exercises_in_assignment_group(assignment_group_name="Permanente evaluatie")
                 all_exercises_with_name_and_utc_due_date = self.canvas_manager.manipulate_exercises(all_exercises)
-                print(all_exercises_with_name_and_utc_due_date)
-                print(changed_exercises)
                 # Filter only exercises that have been changed
                 all_exercises_with_name_and_utc_due_date = [exercise for exercise in all_exercises_with_name_and_utc_due_date if exercise['name'] in changed_exercises]
-
-                print(all_exercises_with_name_and_utc_due_date)
 
                 for exercise in all_exercises_with_name_and_utc_due_date:
                     # Get exercise name
@@ -128,12 +123,15 @@ class SubmissionRunner:
 
                     # If the due date is None, skip the exercise
                     if exc_due_date is None:
+                        self.logger.debug(f"Due date for {exc_name} is None, skipping exercise")
                         continue
                     # If the due date is longer than 1 day in the past, skip the exercise
                     if exc_due_date < utcn - timedelta(days=1):
+                        self.logger.debug(f"Due date for {exc_name} is in the past, skipping exercise")
                         continue
                     # If the due date is longer than 8 days in the future, skip the exercise
                     if exc_due_date > utcn + timedelta(days=8):
+                        self.logger.debug(f"Due date for {exc_name} is more than 8 days in the future, skipping exercise")
                         continue
 
                     try:
@@ -162,7 +160,7 @@ class SubmissionRunner:
                         test_run_result_dict['should_update_canvas'] = True
                         all_results.append(test_run_result_dict)
                     except Exception as e:
-                        self.logger.write_to_log_file(f"Error: {e}")
+                        self.logger.debug(f"Error: {e}")
 
                 # Save results to file
                 results_with_should_update = self.file_ops.save_results_to_file(all_results, f'{student_identifier}.json')
