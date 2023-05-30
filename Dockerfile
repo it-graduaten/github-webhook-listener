@@ -1,4 +1,4 @@
-FROM python:slim-buster
+FROM cicirello/pyaction:latest
 WORKDIR /code/app
 EXPOSE 8000
 COPY ./requirements.txt /code/requirements.txt
