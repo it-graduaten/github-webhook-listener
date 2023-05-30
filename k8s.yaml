@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-webhook-listener
+spec:
+  selector:
+    matchLabels:
+      app: github-webhook-listener
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: github-webhook-listener
+    spec:
+      containers:
+      - name: github-webhook-listener
+        image: jorensynaevetm/github-webhook-listener:latest
+        ports:
+        - containerPort: 8080
