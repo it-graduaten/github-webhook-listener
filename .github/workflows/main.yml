@@ -21,6 +21,8 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
+    name: Deploy container
+    needs: delivery
     steps:
     
     - uses: okteto/context@latest
