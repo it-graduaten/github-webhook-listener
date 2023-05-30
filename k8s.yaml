@@ -21,11 +21,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: github-webhook-listener
+  name: github-webhook-listener-service
 spec:
   selector:
     app: github-webhook-listener
   ports:
-  - protocol: TCP
-    port: 8000
-    targetPort: 8000
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer
