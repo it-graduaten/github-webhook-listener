@@ -32,7 +32,7 @@ jobs:
     - name: "Activate Namespace"
       uses: okteto/namespace@latest
       with:
-        name: jorensynaevetm
+        namespace: jorensynaevetm
     
     - name: "Deploy application"
       uses: okteto/apply@latest
