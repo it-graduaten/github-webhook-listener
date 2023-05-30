@@ -131,3 +131,12 @@ dmypy.json
 
 # Custom
 /temp
+results/
+test-repo/
+solution-repo/
+student-repos/
+temp/
+logs/
+
+/classroom_roster.csv
+.idea/
