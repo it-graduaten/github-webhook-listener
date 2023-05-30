@@ -24,6 +24,8 @@ jobs:
     name: Deploy container
     needs: delivery
     steps:
+    - name: Check out repository
+      uses: actions/checkout@v1
     
     - uses: okteto/context@latest
       with:
