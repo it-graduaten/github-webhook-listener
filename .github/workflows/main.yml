@@ -38,6 +38,7 @@ jobs:
       uses: okteto/apply@latest
       with:
         namespace: jorensynaevetm
+        manifest: okteto.yaml
 
     - name: "Push changes"
       uses: okteto/push@latest
