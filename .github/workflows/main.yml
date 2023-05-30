@@ -36,5 +36,6 @@ jobs:
           KUBECONFIG: ${{ steps.namespace.outputs.kubeconfig }}
         with:
           namespace: jorensynaevetm
+          manifest: k8s.yml
           tag: ${{ secrets.DOCKER_USER }}/github-webhook-listener:latest
           waitOn: deployment/github-webhook-listener

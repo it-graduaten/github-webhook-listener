@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-actions
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello-actions
+  template:
+    metadata:
+      labels:
+        app: hello-actions
+    spec:
+      containers:
+      - image: ramiro/hello-actions:latest
+        name: hello-actions
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-actions
+  annotations:
+    dev.okteto.com/auto-ingress: "true"
+spec:
+  type: ClusterIP  
+  ports:
+  - name: "hello-actions"
+    port: 8080
+  selector:
+    app: hello-actions
