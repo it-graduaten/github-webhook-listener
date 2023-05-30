@@ -16,4 +16,4 @@ spec:
       - name: github-webhook-listener
         image: jorensynaevetm/github-webhook-listener:latest
         ports:
-        - containerPort: 8080
+        - containerPort: 8000
