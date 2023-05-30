@@ -22,5 +22,6 @@ async def root():
 @app.post('/oop')
 async def oop_root(payload: GithubPushPayload, background_tasks: BackgroundTasks):
     output = ["Received push event from OOP repository"]
+    
     logger.info('Received push event from OOP repository')
     return output
