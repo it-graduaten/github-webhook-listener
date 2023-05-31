@@ -20,7 +20,7 @@ class CanvasManager:
         return config
 
     def get_canvas_obj(self):
-        canvas = Canvas(self.config["canvas_api_url"], os.environ['CANVAS_API_KEY'])
+        canvas = Canvas(self.config["canvas_api_url"], os.getenv('CANVAS_API_KEY'))
         return canvas
 
     def get_course(self, course_id):

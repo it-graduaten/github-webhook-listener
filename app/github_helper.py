@@ -4,7 +4,7 @@ import os
 
 class GithubHelper:
     def __init__(self, logger):
-        self.access_token = os.environ['GITHUB_ACCESS_TOKEN']
+        self.access_token = os.getenv('GITHUB_ACCESS_TOKEN')
         self.g = Github(self.access_token)
         self.org = self.g.get_organization('it-graduaten')
         self.logger = logger
