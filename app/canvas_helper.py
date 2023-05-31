@@ -75,11 +75,7 @@ class CanvasManager:
             return
 
         for exercise in results:
-            if (exercise["should_update_canvas"] == False):
-                self.logger.debug(f'Should not update canvas for {exercise["assignment"]}')
-                continue
-
-            exercise_name = exercise["assignment"]
+            exercise_name = exercise["assignment"].replace("_", ".")
             grade = exercise["grade"]
             run_at_utc_datetime = exercise["run_at_utc_datetime"]
 
