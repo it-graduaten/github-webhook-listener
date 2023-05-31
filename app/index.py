@@ -17,6 +17,12 @@ app = FastAPI()
 async def root():
     return 'Hello World!'
 
+@app.get('/update-solutions')
+async def update_solutions(background_tasks: BackgroundTasks):
+    submission_runner = SubmissionRunner(logger)
+    background_tasks.add_task(submission_runner.fetch_solution_repo)
+    return 'Solutions will be updated!'
+
 
 @app.post('/oop')
 async def oop_root(payload: GithubPushPayload, background_tasks: BackgroundTasks):
