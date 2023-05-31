@@ -22,11 +22,12 @@ class RepoResource(object):
     repo_destination_path: Final[str]
     repo: Repo
 
-    def __init__(self, repo_name: str, repo_destination_path: str, file_ops: FileOperations, github_helper: GithubHelper):
+    def __init__(self, repo_name: str, repo_destination_path: str, file_ops: FileOperations, github_helper: GithubHelper, remove_on_close: bool = True):
         self.repo_name = repo_name
         self.repo_destination_path = repo_destination_path
         self.file_ops = file_ops
         self.github_helper = github_helper
+        self.remove_on_close = remove_on_close
 
     def __enter__(self) -> Repo:
         # Remove the repo if it already exists
@@ -38,8 +39,9 @@ class RepoResource(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.repo.close()
 
-        # Remove the repository from the filesystem.
-        self.file_ops.rmtree(self.repo_destination_path)
+        if (self.remove_on_close):
+            # Remove the repository from the filesystem.
+            self.file_ops.rmtree(self.repo_destination_path)
 
 class SubmissionRunner:
     kSolution_repo_name: Final[str] = 'OOP-SolutionRepo'
@@ -68,6 +70,11 @@ class SubmissionRunner:
             exit()
 
         return {student['github_username']: student for student in classroom_roster}      
+
+    def fetch_solution_repo(self) -> None:
+        with RepoResource(self.kSolution_repo_name, self.kSolution_repo_path, self.file_ops, self.github_helper, False) as solution_repo:
+            return
+        
 
     def run_tests_for_student(self, repo_name: str, changed_exercises) -> None:
         """
@@ -98,72 +105,69 @@ class SubmissionRunner:
 
         kTest_repo_path = f'./student-repos/{repo_name}'
 
-        with RepoResource(self.kSolution_repo_name, self.kSolution_repo_path, self.file_ops, self.github_helper) as solution_repo:
-            with RepoResource(repo_name, kTest_repo_path, self.file_ops, self.github_helper) as current_repo:
-                heads = current_repo.heads
-                main = heads.main
-                all_commits = list(current_repo.iter_commits(main))
-                all_results: List[TestRunResult] = []
+        with RepoResource(repo_name, kTest_repo_path, self.file_ops, self.github_helper) as current_repo:
+            heads = current_repo.heads
+            main = heads.main
+            all_commits = list(current_repo.iter_commits(main))
+            all_results: List[TestRunResult] = []
 
-                """ Get a list of the exercises that should be graded """
-                all_exercises = self.canvas_manager.get_all_exercises_in_assignment_group(assignment_group_name="Permanente evaluatie")
-                all_exercises_with_name_and_utc_due_date = self.canvas_manager.manipulate_exercises(all_exercises)
-                # Filter only exercises that have been changed
-                all_exercises_with_name_and_utc_due_date = [exercise for exercise in all_exercises_with_name_and_utc_due_date if exercise['name'] in changed_exercises]
+            """ Get a list of the exercises that should be graded """
+            all_exercises = self.canvas_manager.get_all_exercises_in_assignment_group(assignment_group_name="Permanente evaluatie")
+            all_exercises_with_name_and_utc_due_date = self.canvas_manager.manipulate_exercises(all_exercises)
+            # Filter only exercises that have been changed
+            all_exercises_with_name_and_utc_due_date = [exercise for exercise in all_exercises_with_name_and_utc_due_date if exercise['name'] in changed_exercises]
 
-                for exercise in all_exercises_with_name_and_utc_due_date:
-                    # Get exercise name
-                    exc_name = exercise['name']
+            for exercise in all_exercises_with_name_and_utc_due_date:
+                # Get exercise name
+                exc_name = exercise['name']
 
-                    # Get exercise due date
-                    exc_due_date = exercise['due_at']
+                # Get exercise due date
+                exc_due_date = exercise['due_at']
 
-                    # Get the current timestamp
-                    utcn = datetime.utcnow().replace(tzinfo=self.utc)
+                # Get the current timestamp
+                utcn = datetime.utcnow().replace(tzinfo=self.utc)
 
-                    # If the due date is None, skip the exercise
-                    if exc_due_date is None:
-                        self.logger.debug(f"Due date for {exc_name} is None, skipping exercise")
-                        continue
-                    # If the due date is longer than 1 day in the past, skip the exercise
-                    if exc_due_date < utcn - timedelta(days=1):
-                        self.logger.debug(f"Due date for {exc_name} is in the past, skipping exercise")
-                        continue
-                    # If the due date is longer than 8 days in the future, skip the exercise
-                    if exc_due_date > utcn + timedelta(days=8):
-                        self.logger.debug(f"Due date for {exc_name} is more than 8 days in the future, skipping exercise")
-                        continue
+                # If the due date is None, skip the exercise
+                if exc_due_date is None:
+                    self.logger.debug(f"Due date for {exc_name} is None, skipping exercise")
+                    continue
+                # If the due date is longer than 1 day in the past, skip the exercise
+                if exc_due_date < utcn - timedelta(days=1):
+                    self.logger.debug(f"Due date for {exc_name} is in the past, skipping exercise")
+                    continue
+                # If the due date is longer than 8 days in the future, skip the exercise
+                if exc_due_date > utcn + timedelta(days=8):
+                    self.logger.debug(f"Due date for {exc_name} is more than 8 days in the future, skipping exercise")
+                    continue
 
-                    try:
-                        # If the due date is in the future, checkout the latest commit
-                        if exc_due_date > utcn:
-                            self.github_helper.checkout_repo_at_specific_commit(current_repo, all_commits[0])
-                        # If the due date is in the past, checkout the commit that was made before the due date
-                        elif exc_due_date < utcn:
-                            # Find the commit that was made before the due date
-                            for commit in all_commits:
-                                if commit.committed_date < exc_due_date.timestamp():
-                                    # Checkout the commit
-                                    self.github_helper.checkout_repo_at_specific_commit(current_repo, commit)
-                                    break
-                        # Split exercise in chapter and number
-                        chapter, number = exc_name.split('_')
-                        # Copy the unit tests to the repo to be tested
-                        self.file_ops.copy_dir(f'{self.kSolution_repo_path}/{chapter}/{exc_name}/test',
-                                        f'./{kTest_repo_path}/{chapter}/{exc_name}/test', True)
-                        # Run the tests
-                        self.test_runner.run_tests(f'./{kTest_repo_path}/{chapter}/{exc_name}/test')
-                        # Get results from the test
-                        test_run_result_dict: TestRunResult = self.test_runner.get_test_run_result(f'./{kTest_repo_path}/{chapter}/{exc_name}/test')
-                        test_run_result_dict['assignment'] = exc_name
-                        test_run_result_dict['run_at_utc_datetime'] = str(utcn)
-                        test_run_result_dict['should_update_canvas'] = True
-                        all_results.append(test_run_result_dict)
-                    except Exception as e:
-                        self.logger.debug(f"Error: {e}")
+                try:
+                    # If the due date is in the future, checkout the latest commit
+                    if exc_due_date > utcn:
+                        self.github_helper.checkout_repo_at_specific_commit(current_repo, all_commits[0])
+                    # If the due date is in the past, checkout the commit that was made before the due date
+                    elif exc_due_date < utcn:
+                        # Find the commit that was made before the due date
+                        for commit in all_commits:
+                            if commit.committed_date < exc_due_date.timestamp():
+                                # Checkout the commit
+                                self.github_helper.checkout_repo_at_specific_commit(current_repo, commit)
+                                break
+                    # Split exercise in chapter and number
+                    chapter, number = exc_name.split('_')
+                    # Copy the unit tests to the repo to be tested
+                    self.file_ops.copy_dir(f'{self.kSolution_repo_path}/{chapter}/{exc_name}/test',
+                                    f'./{kTest_repo_path}/{chapter}/{exc_name}/test', True)
+                    # Run the tests
+                    self.test_runner.run_tests(f'./{kTest_repo_path}/{chapter}/{exc_name}/test')
+                    # Get results from the test
+                    test_run_result_dict: TestRunResult = self.test_runner.get_test_run_result(f'./{kTest_repo_path}/{chapter}/{exc_name}/test')
+                    test_run_result_dict['assignment'] = exc_name
+                    test_run_result_dict['run_at_utc_datetime'] = str(utcn)
+                    all_results.append(test_run_result_dict)
+                except Exception as e:
+                    self.logger.debug(f"Error: {e}")
 
-                # Save results to file
-                results_with_should_update = self.file_ops.save_results_to_file(all_results, f'{student_identifier}.json')
+            print(all_results)
 
-                """ Upload results into Canvas """
-                self.canvas_manager.upload_results(student_identifier, results_with_should_update)
+            """ Upload results into Canvas """
+            self.canvas_manager.upload_results(student_identifier, all_results)
