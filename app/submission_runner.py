@@ -75,6 +75,11 @@ class SubmissionRunner:
         with RepoResource(self.kSolution_repo_name, self.kSolution_repo_path, self.file_ops, self.github_helper, False) as solution_repo:
             return
         
+    def get_all_folders_in_solution_repo(self) -> List[str]:
+        """
+        Get all the folders in the solution repo.
+        """
+        return self.file_ops.get_all_folders_in_dir(self.kSolution_repo_path)
 
     def run_tests_for_student(self, repo_name: str, changed_exercises) -> None:
         """
@@ -87,6 +92,8 @@ class SubmissionRunner:
         changed_exercises : list[str]
             A list of exercises that were changed in the repo.
         """
+        # Get the current timestamp
+        utcn_timestamp = datetime.utcnow().replace(tzinfo=self.utc).timestamp()
         # Get github_username of the repo, which is all parts after the first '-',
         # because GitHub classroom appends the github_username to the repo name
         github_username = repo_name.split('-')[1]
@@ -103,7 +110,7 @@ class SubmissionRunner:
         student = classroom_roster[github_username]
         student_identifier = student['identifier']
 
-        kTest_repo_path = f'./student-repos/{repo_name}'
+        kTest_repo_path = f'./student-repos/{repo_name}-{utcn_timestamp}'
 
         with RepoResource(repo_name, kTest_repo_path, self.file_ops, self.github_helper) as current_repo:
             heads = current_repo.heads

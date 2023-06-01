@@ -106,4 +106,9 @@ class FileOperations:
         self.logger.debug(f'Got classroom roster')
         return roster
 
-
+    def get_all_folders_in_dir(self, dir):
+        folders = []
+        for item in os.listdir(dir):
+            if os.path.isdir(os.path.join(dir, item)):
+                folders.append(item)
+        return folders

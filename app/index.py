@@ -23,6 +23,10 @@ async def update_solutions(background_tasks: BackgroundTasks):
     background_tasks.add_task(submission_runner.fetch_solution_repo)
     return 'Solutions will be updated!'
 
+@app.get("/get-solution-folders")
+async def get_solution_folders():
+    submission_runner = SubmissionRunner(logger)
+    return submission_runner.get_all_folders_in_solution_repo()
 
 @app.post('/oop')
 async def oop_root(payload: GithubPushPayload, background_tasks: BackgroundTasks):
