@@ -4,8 +4,14 @@ FROM cicirello/pyaction:latest
 # set work directory
 WORKDIR /usr/src/app
 
+# create logs directory
 RUN mkdir -p /usr/src/app/logs
 RUN touch /usr/src/app/logs/celery.log
+
+# Create the 'student-repos' directory
+RUN mkdir -p /usr/src/app/student-repos
+# Create the 'solution-repo' directory
+RUN mkdir -p /usr/src/app/solution-repo
 
 # set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
