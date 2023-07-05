@@ -115,7 +115,7 @@ class SubmissionRunner:
 
         kTest_repo_path = f'./student-repos/{repo_name}-{utcn_timestamp}'
 
-        with RepoResource(repo_name, kTest_repo_path, self.file_ops, self.github_helper) as current_repo:
+        with RepoResource(repo_name, kTest_repo_path, self.file_ops, self.github_helper, False) as current_repo:
             heads = current_repo.heads
             main = heads.main
             all_commits = list(current_repo.iter_commits(main))
@@ -173,7 +173,7 @@ class SubmissionRunner:
                     test_run_result_dict['run_at_utc_datetime'] = str(utcn)
                     all_results.append(test_run_result_dict)
                 except Exception as e:
-                    self.logger.debug(f"Error: {e}")
+                    self.logger.error(f"Error: {e}")
 
             print(all_results)
 

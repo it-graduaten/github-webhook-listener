@@ -4,10 +4,14 @@ from celery.result import AsyncResult
 import re
 
 from custom_types import GithubPushPayload, WebhookResponse
-from worker import create_task, fetch_solution_repo, run_tests_for_student
+from worker import fetch_solution_repo, run_tests_for_student
 
 
 app = FastAPI()
+
+@app.get('/')
+async def root():
+    return {"message": "Hello World"}
 
 @app.get('/update-solutions', status_code=201)
 async def update_solutions():

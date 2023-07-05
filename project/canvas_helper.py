@@ -10,7 +10,7 @@ class CanvasManager:
         self.utc = pytz.UTC
         self.config = self.get_config()
         self.canvas = self.get_canvas_obj()
-        self.course = self.get_course(self.config['canvas_course_id'])
+        self.course = self.get_course(self.config["oop"]['canvas_course_id'])
         self.all_students_in_course = self.get_students()
         self.all_assignments_in_course = list(self.course.get_assignments())
 
@@ -20,7 +20,7 @@ class CanvasManager:
         return config
 
     def get_canvas_obj(self):
-        canvas = Canvas(self.config["canvas_api_url"], os.environ.get('CANVAS_API_KEY'))
+        canvas = Canvas(self.config["general"]["canvas_api_url"], os.environ.get('CANVAS_API_KEY'))
         return canvas
 
     def get_course(self, course_id):
