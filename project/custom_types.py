@@ -20,3 +20,4 @@ class GithubPushPayload(BaseModel):
 class WebhookResponse(BaseModel):
     message: str = "Received push event from OOP repository"
     changed_exercises: list = []
+    task_id: str = None
