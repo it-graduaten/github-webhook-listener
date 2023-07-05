@@ -4,6 +4,7 @@ FROM cicirello/pyaction:latest
 # set work directory
 WORKDIR /usr/src/app
 
+RUN mkdir -p /usr/src/app/logs
 RUN touch /usr/src/app/logs/celery.log
 
 # set environment variables
