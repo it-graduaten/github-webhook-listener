@@ -13,6 +13,7 @@ import argparse
 import concurrent.futures
 from typing import List
 from custom_types import TestRunResult
+from log_helper import LogHelper
 
 class RepoResource(object):
     """
@@ -32,7 +33,9 @@ class RepoResource(object):
     def __enter__(self) -> Repo:
         # Remove the repo if it already exists
         self.file_ops.rmtree(self.repo_destination_path)
-
+        # Create a folder for the repo
+        self.file_ops.mkdir(self.repo_destination_path)
+        # Clone the repo
         self.repo = self.github_helper.clone_repo(self.repo_name, self.repo_destination_path)
         return self.repo
 
@@ -45,11 +48,11 @@ class RepoResource(object):
 
 class SubmissionRunner:
     kSolution_repo_name: Final[str] = 'OOP-SolutionRepo'
-    kSolution_repo_path: Final[str] = f'./solution-repo'
+    kSolution_repo_path: Final[str] = f'solution-repo'
 
-    def __init__(self, logger):
+    def __init__(self):
         # Init classes
-        self.logger = logger
+        self.logger = LogHelper()
         # logfile_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log"
         # self.logger = Logger(logfile_name)
         self.test_runner = TestRunner(self.logger)
@@ -112,7 +115,7 @@ class SubmissionRunner:
 
         kTest_repo_path = f'./student-repos/{repo_name}-{utcn_timestamp}'
 
-        with RepoResource(repo_name, kTest_repo_path, self.file_ops, self.github_helper) as current_repo:
+        with RepoResource(repo_name, kTest_repo_path, self.file_ops, self.github_helper, False) as current_repo:
             heads = current_repo.heads
             main = heads.main
             all_commits = list(current_repo.iter_commits(main))
@@ -123,6 +126,8 @@ class SubmissionRunner:
             all_exercises_with_name_and_utc_due_date = self.canvas_manager.manipulate_exercises(all_exercises)
             # Filter only exercises that have been changed
             all_exercises_with_name_and_utc_due_date = [exercise for exercise in all_exercises_with_name_and_utc_due_date if exercise['name'] in changed_exercises]
+
+            self.logger.debug(f"Found {len(all_exercises_with_name_and_utc_due_date)} exercises to grade")
 
             for exercise in all_exercises_with_name_and_utc_due_date:
                 # Get exercise name
@@ -141,10 +146,6 @@ class SubmissionRunner:
                 # If the due date is longer than 1 day in the past, skip the exercise
                 if exc_due_date < utcn - timedelta(days=1):
                     self.logger.debug(f"Due date for {exc_name} is in the past, skipping exercise")
-                    continue
-                # If the due date is longer than 8 days in the future, skip the exercise
-                if exc_due_date > utcn + timedelta(days=8):
-                    self.logger.debug(f"Due date for {exc_name} is more than 8 days in the future, skipping exercise")
                     continue
 
                 try:
@@ -172,7 +173,7 @@ class SubmissionRunner:
                     test_run_result_dict['run_at_utc_datetime'] = str(utcn)
                     all_results.append(test_run_result_dict)
                 except Exception as e:
-                    self.logger.debug(f"Error: {e}")
+                    self.logger.error(f"Error: {e}")
 
             print(all_results)
 

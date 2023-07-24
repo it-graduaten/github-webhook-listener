@@ -18,6 +18,7 @@ class TestRunner:
 
     def run_tests(self, path_to_test_project):
         self.logger.debug(f'Running tests for {path_to_test_project}..')
+        return_code = subprocess.call(f'ls {path_to_test_project}', shell=True)
         return_code = subprocess.call(f'dotnet test {path_to_test_project} -l:\"trx;LogFileName={self.kXmlReportName}\" --verbosity="quiet"',
                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 

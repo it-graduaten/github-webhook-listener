@@ -10,7 +10,7 @@ class CanvasManager:
         self.utc = pytz.UTC
         self.config = self.get_config()
         self.canvas = self.get_canvas_obj()
-        self.course = self.get_course(self.config['canvas_course_id'])
+        self.course = self.get_course(self.config["oop"]['canvas_course_id'])
         self.all_students_in_course = self.get_students()
         self.all_assignments_in_course = list(self.course.get_assignments())
 
@@ -20,7 +20,7 @@ class CanvasManager:
         return config
 
     def get_canvas_obj(self):
-        canvas = Canvas(self.config["canvas_api_url"], os.getenv('CANVAS_API_KEY'))
+        canvas = Canvas(self.config["general"]["canvas_api_url"], os.environ.get('CANVAS_API_KEY'))
         return canvas
 
     def get_course(self, course_id):
@@ -105,7 +105,7 @@ class CanvasManager:
             due_at = None if (assignment.due_at is None) else datetime.strptime(assignment.due_at, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=self.utc)
             assignment_id = assignment.id
             exercise = {
-                'name': name.replace('.', '_'),
+                'name': name.replace('.', '_').replace("*", ""),
                 'due_at': due_at,
                 'id': assignment_id
             }

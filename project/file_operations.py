@@ -112,3 +112,8 @@ class FileOperations:
             if os.path.isdir(os.path.join(dir, item)):
                 folders.append(item)
         return folders
+
+    def mkdir(self, path):
+        self.logger.debug(f'Creating directory {path}..')
+        os.mkdir(path)
+        self.logger.debug(f'Created directory {path}')
