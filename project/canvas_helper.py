@@ -105,7 +105,7 @@ class CanvasManager:
             due_at = None if (assignment.due_at is None) else datetime.strptime(assignment.due_at, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=self.utc)
             assignment_id = assignment.id
             exercise = {
-                'name': name.replace('.', '_'),
+                'name': name.replace('.', '_').replace("*", ""),
                 'due_at': due_at,
                 'id': assignment_id
             }
