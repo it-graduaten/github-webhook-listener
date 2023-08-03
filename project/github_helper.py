@@ -5,8 +5,6 @@ import os
 
 class GithubHelper:
     def __init__(self, logger):
-        print(os.environ.get('GITHUB_ACCESS_TOKEN'))
-        print(os.environ.get('CELERY_BROKER_URL'))
         self.access_token = os.environ.get('GITHUB_ACCESS_TOKEN')
         auth = Auth.Token(self.access_token)
         self.g = Github(auth=auth)

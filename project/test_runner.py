@@ -18,10 +18,11 @@ class TestRunner:
 
     def run_tests(self, path_to_test_project):
         self.logger.debug(f'Running tests for {path_to_test_project}..')
-        return_code = subprocess.call(f'ls {path_to_test_project}', shell=True)
-        return_code = subprocess.call(f'dotnet test {path_to_test_project} -l:\"trx;LogFileName={self.kXmlReportName}\" --verbosity="quiet"',
-                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
+        return_code = subprocess.call(f'dotnet')
+        command = f'dotnet test {path_to_test_project} -l:\"trx;LogFileName={self.kXmlReportName}\" --verbosity="quiet"'
+        self.logger.debug(command)
+        return_code = subprocess.call(command, shell=True)
+        self.logger.debug(return_code)
         self.logger.debug(f'Finished running tests for {path_to_test_project}')
 
     def extract_weight_from_name(self, name: str):
@@ -43,7 +44,11 @@ class TestRunner:
         # Check if file exists
         if not os.path.exists(f'{path_to_test_project}/TestResults/result.xml'):
             self.logger.debug("It seems like your tests were not run. Check the correctness of the dotnet built step before.")
-            return -1, -1
+            return {
+            'total': -1,
+            'errors': -1,
+            'grade': -1,
+        }
 
         # Parse the XML file
         xmldoc = minidom.parse(f'{path_to_test_project}/TestResults/result.xml')

@@ -62,7 +62,7 @@ class SubmissionRunner:
         self.utc = pytz.UTC
 
     
-    def get_classroom_roster(self) -> dict[str, ClassroomRoster]:
+    def get_classroom_roster(self):
         """
         Read the classroom roster to get a link between the student identifier and the GitHub username and convert it to
         a dict so that we have O(1) lookup based on the students GitHub username.
@@ -115,7 +115,7 @@ class SubmissionRunner:
 
         kTest_repo_path = f'./student-repos/{repo_name}-{utcn_timestamp}'
 
-        with RepoResource(repo_name, kTest_repo_path, self.file_ops, self.github_helper, False) as current_repo:
+        with RepoResource(repo_name, kTest_repo_path, self.file_ops, self.github_helper, True) as current_repo:
             heads = current_repo.heads
             main = heads.main
             all_commits = list(current_repo.iter_commits(main))
