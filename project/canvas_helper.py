@@ -4,13 +4,14 @@ import json
 from datetime import datetime
 import pytz
 
+
 class CanvasManager:
-    def __init__(self, logger):
+    def __init__(self, logger, canvas_course_id):
         self.logger = logger
         self.utc = pytz.UTC
         self.config = self.get_config()
         self.canvas = self.get_canvas_obj()
-        self.course = self.get_course(self.config["oop"]['canvas_course_id'])
+        self.course = self.get_course(canvas_course_id)
         self.all_students_in_course = self.get_students()
         self.all_assignments_in_course = list(self.course.get_assignments())
 
@@ -67,7 +68,8 @@ class CanvasManager:
     def upload_results(self, student_identifier, results):
         self.logger.debug(f'Uploading results for {student_identifier}')
         # Find the student to update, based on the student identifier
-        student_to_update = next((item for item in self.all_students_in_course if student_identifier in item.sis_user_id), None)
+        student_to_update = next(
+            (item for item in self.all_students_in_course if student_identifier in item.sis_user_id), None)
 
         # If no student is found, log this and return
         if student_to_update is None:
@@ -94,7 +96,8 @@ class CanvasManager:
             submission = course_assignment.get_submission(student_to_update.id)
             submission.edit(
                 submission={'posted_grade': grade},
-                comment={'text_comment': f'Last graded at {datetime.fromisoformat(run_at_utc_datetime).strftime("%Y-%m-%d %H:%M:%S")} with a score of {grade}'}
+                comment={
+                    'text_comment': f'Last graded at {datetime.fromisoformat(run_at_utc_datetime).strftime("%Y-%m-%d %H:%M:%S")} with a score of {grade}'}
             )
             self.logger.debug(f'Updated grade for {exercise_name} to {grade}')
 
@@ -102,7 +105,9 @@ class CanvasManager:
         exercises = []
         for assignment in assignments:
             name = assignment.name
-            due_at = None if (assignment.due_at is None) else datetime.strptime(assignment.due_at, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=self.utc)
+            due_at = None if (assignment.due_at is None) else datetime.strptime(assignment.due_at,
+                                                                                "%Y-%m-%dT%H:%M:%S%z").replace(
+                tzinfo=self.utc)
             assignment_id = assignment.id
             exercise = {
                 'name': name.replace('.', '_').replace("*", ""),

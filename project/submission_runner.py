@@ -15,6 +15,7 @@ from typing import List
 from custom_types import TestRunResult
 from log_helper import LogHelper
 
+
 class RepoResource(object):
     """
     Clone a repository from GitHub and close it when done.
@@ -23,7 +24,8 @@ class RepoResource(object):
     repo_destination_path: Final[str]
     repo: Repo
 
-    def __init__(self, repo_name: str, repo_destination_path: str, file_ops: FileOperations, github_helper: GithubHelper, remove_on_close: bool = True):
+    def __init__(self, repo_name: str, repo_destination_path: str, file_ops: FileOperations,
+                 github_helper: GithubHelper, remove_on_close: bool = True):
         self.repo_name = repo_name
         self.repo_destination_path = repo_destination_path
         self.file_ops = file_ops
@@ -46,22 +48,20 @@ class RepoResource(object):
             # Remove the repository from the filesystem.
             self.file_ops.rmtree(self.repo_destination_path)
 
+
 class SubmissionRunner:
-    kSolution_repo_name: Final[str] = 'OOP-SolutionRepo'
     kSolution_repo_path: Final[str] = f'solution-repo'
 
-    def __init__(self):
+    def __init__(self, course_config):
         # Init classes
+        self.course_config = course_config
         self.logger = LogHelper()
-        # logfile_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log"
-        # self.logger = Logger(logfile_name)
         self.test_runner = TestRunner(self.logger)
         self.file_ops = FileOperations(self.logger)
         self.github_helper = GithubHelper(self.logger)
-        self.canvas_manager = CanvasManager(self.logger)
+        self.canvas_manager = CanvasManager(self.logger, course_config['canvas_course_id'])
         self.utc = pytz.UTC
 
-    
     def get_classroom_roster(self):
         """
         Read the classroom roster to get a link between the student identifier and the GitHub username and convert it to
@@ -72,12 +72,13 @@ class SubmissionRunner:
             self.logger.debug("Classroom roster not found")
             exit()
 
-        return {student['github_username']: student for student in classroom_roster}      
+        return {student['github_username']: student for student in classroom_roster}
 
-    def fetch_solution_repo(self) -> None:
-        with RepoResource(self.kSolution_repo_name, self.kSolution_repo_path, self.file_ops, self.github_helper, False) as solution_repo:
+    def fetch_solution_repo(self, solution_repo_name) -> None:
+        with RepoResource(solution_repo_name, self.kSolution_repo_path + '/' + solution_repo_name, self.file_ops,
+                          self.github_helper, False) as solution_repo:
             return
-        
+
     def get_all_folders_in_solution_repo(self) -> List[str]:
         """
         Get all the folders in the solution repo.
@@ -122,10 +123,13 @@ class SubmissionRunner:
             all_results: List[TestRunResult] = []
 
             """ Get a list of the exercises that should be graded """
-            all_exercises = self.canvas_manager.get_all_exercises_in_assignment_group(assignment_group_name="Permanente evaluatie")
+            all_exercises = self.canvas_manager.get_all_exercises_in_assignment_group(
+                assignment_group_name="Permanente evaluatie")
             all_exercises_with_name_and_utc_due_date = self.canvas_manager.manipulate_exercises(all_exercises)
             # Filter only exercises that have been changed
-            all_exercises_with_name_and_utc_due_date = [exercise for exercise in all_exercises_with_name_and_utc_due_date if exercise['name'] in changed_exercises]
+            all_exercises_with_name_and_utc_due_date = [exercise for exercise in
+                                                        all_exercises_with_name_and_utc_due_date if
+                                                        exercise['name'] in changed_exercises]
 
             self.logger.debug(f"Found {len(all_exercises_with_name_and_utc_due_date)} exercises to grade")
 
@@ -163,12 +167,14 @@ class SubmissionRunner:
                     # Split exercise in chapter and number
                     chapter, number = exc_name.split('_')
                     # Copy the unit tests to the repo to be tested
-                    self.file_ops.copy_dir(f'{self.kSolution_repo_path}/{chapter}/{exc_name}/test',
-                                    f'./{kTest_repo_path}/{chapter}/{exc_name}/test', True)
+                    unit_test_source_path = f'{self.kSolution_repo_path}/{self.course_config["solution_repo_name"]}/{chapter}/{exc_name}/test'
+                    self.file_ops.copy_dir(unit_test_source_path, f'./{kTest_repo_path}/{chapter}/{exc_name}/test',
+                                           True)
                     # Run the tests
                     self.test_runner.run_tests(f'./{kTest_repo_path}/{chapter}/{exc_name}/test')
                     # Get results from the test
-                    test_run_result_dict: TestRunResult = self.test_runner.get_test_run_result(f'./{kTest_repo_path}/{chapter}/{exc_name}/test')
+                    test_run_result_dict: TestRunResult = self.test_runner.get_test_run_result(
+                        f'./{kTest_repo_path}/{chapter}/{exc_name}/test')
                     test_run_result_dict['assignment'] = exc_name
                     test_run_result_dict['run_at_utc_datetime'] = str(utcn)
                     all_results.append(test_run_result_dict)
