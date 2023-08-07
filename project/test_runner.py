@@ -6,7 +6,7 @@ import json
 from xml.dom import minidom
 import subprocess
 import re
-from custom_types import TestRunResult 
+from custom_types import TestRunResult
 
 class TestRunner:
     kXmlReportName = 'result.xml'
@@ -18,11 +18,12 @@ class TestRunner:
 
     def run_tests(self, path_to_test_project):
         self.logger.debug(f'Running tests for {path_to_test_project}..')
-        return_code = subprocess.call(f'dotnet')
+        restore_command = f'dotnet restore {path_to_test_project}'
+        self.logger.debug(restore_command)
+        return_code = subprocess.call(restore_command, shell=True)
         command = f'dotnet test {path_to_test_project} -l:\"trx;LogFileName={self.kXmlReportName}\" --verbosity="quiet"'
         self.logger.debug(command)
         return_code = subprocess.call(command, shell=True)
-        self.logger.debug(return_code)
         self.logger.debug(f'Finished running tests for {path_to_test_project}')
 
     def extract_weight_from_name(self, name: str):
