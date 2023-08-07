@@ -18,6 +18,9 @@ class TestRunner:
 
     def run_tests(self, path_to_test_project):
         self.logger.debug(f'Running tests for {path_to_test_project}..')
+        list_source_command = f'dotnet nuget list source'
+        self.logger.debug(list_source_command)
+        return_code = subprocess.call(list_source_command, shell=True)
         restore_command = f'dotnet restore {path_to_test_project}'
         self.logger.debug(restore_command)
         return_code = subprocess.call(restore_command, shell=True)
