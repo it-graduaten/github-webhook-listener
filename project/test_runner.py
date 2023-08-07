@@ -17,13 +17,14 @@ class TestRunner:
         pass
 
     def run_tests(self, path_to_test_project):
-        self.logger.debug(f'Running tests for {path_to_test_project}..')
         # list_source_command = f'dotnet nuget list source'
         # self.logger.debug(list_source_command)
         # return_code = subprocess.call(list_source_command, shell=True)
-        # restore_command = f'dotnet restore {path_to_test_project}'
-        # self.logger.debug(restore_command)
-        # return_code = subprocess.call(restore_command, shell=True)
+        path_to_solution = f'{path_to_test_project.replace("/test", "")}'
+        self.logger.debug(f'Running dotnet restore for {path_to_solution}..')
+        restore_command = f'dotnet restore {path_to_solution}'
+        return_code = subprocess.call(restore_command, shell=True)
+        self.logger.debug(f'Running tests for {path_to_test_project}..')
         command = f'dotnet test {path_to_test_project} -l:\"trx;LogFileName={self.kXmlReportName}\" --verbosity="quiet"'
         return_code = subprocess.call(command, shell=True)
         self.logger.debug(f'Finished running tests for {path_to_test_project}')
