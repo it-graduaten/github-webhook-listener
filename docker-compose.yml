@@ -13,6 +13,7 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - GITHUB_ACCESS_TOKEN=${GITHUB_ACCESS_TOKEN}
       - CANVAS_API_KEY=${CANVAS_API_KEY}
+      - CANVAS_API_URL=${CANVAS_API_URL}
     depends_on:
       - redis
 
@@ -26,6 +27,7 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - GITHUB_ACCESS_TOKEN=${GITHUB_ACCESS_TOKEN}
       - CANVAS_API_KEY=${CANVAS_API_KEY}
+      - CANVAS_API_URL=${CANVAS_API_URL}
     depends_on:
       - web
       - redis
