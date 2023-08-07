@@ -9,19 +9,13 @@ class CanvasManager:
     def __init__(self, logger, canvas_course_id):
         self.logger = logger
         self.utc = pytz.UTC
-        self.config = self.get_config()
         self.canvas = self.get_canvas_obj()
         self.course = self.get_course(canvas_course_id)
         self.all_students_in_course = self.get_students()
         self.all_assignments_in_course = list(self.course.get_assignments())
 
-    def get_config(self):
-        with open('config.json', 'r') as f:
-            config = json.load(f)
-        return config
-
     def get_canvas_obj(self):
-        canvas = Canvas(self.config["general"]["canvas_api_url"], os.environ.get('CANVAS_API_KEY'))
+        canvas = Canvas(os.environ.get('CANVAS_API_URL'), os.environ.get('CANVAS_API_KEY'))
         return canvas
 
     def get_course(self, course_id):
