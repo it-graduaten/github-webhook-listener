@@ -14,7 +14,7 @@ celery.conf.result_backend = os.environ.get("CELERY_RESULT_BACKEND", "redis://lo
 @celery.task(name="fetch_solution_repo")
 def fetch_solution_repo(solution_repo_name):
     print("Fetching solution repo")
-    submission_runner = SubmissionRunner(None)
+    submission_runner = SubmissionRunner({'canvas_course_id': 0})
     submission_runner.fetch_solution_repo(solution_repo_name)
     return True
 
