@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'sam-app
+
+  Sample SAM Template for sam-app
+
+  '
+Parameters:
+  DevState:
+    Type: String
+    Default: local
+Mappings:
+  Images:
+    local:
+      grader: local-grader
+    remote:
+      grader: ecr-url
+Globals:
+  Function:
+    Timeout: 3
+    MemorySize: 128
+Resources:
+  GraderTriggerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: GraderTriggerFunction
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Architectures:
+      - x86_64
+      Events:
+        HelloWorld:
+          Type: Api
+          Properties:
+            Path: /grade
+            Method: get
+    Metadata:
+      SamResourceId: GraderTriggerFunction
+  GraderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      ImageUri:
+        Fn::FindInMap:
+        - Images
+        - Ref: DevState
+        - grader
+      ImageConfig:
+        Command:
+        - lambda_function.handler
+      Events:
+        HelloWorld:
+          Type: Api
+          Properties:
+            Path: /grade/triggered
+            Method: get
+    Metadata:
+      DockerTag: grader-function
+      DockerContext: ./functions/grader-function
+      DockerFile: Dockerfile
+Outputs:
+  HelloWorldApi:
+    Description: API Gateway endpoint URL for Prod stage for Hello World function
+    Value:
+      Fn::Sub: https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/
+  HelloWorldFunction:
+    Description: Hello World Lambda Function ARN
+    Value:
+      Fn::GetAtt:
+      - HelloWorldFunction
+      - Arn
+  HelloWorldFunctionIamRole:
+    Description: Implicit IAM Role created for Hello World function
+    Value:
+      Fn::GetAtt:
+      - HelloWorldFunctionRole
+      - Arn
