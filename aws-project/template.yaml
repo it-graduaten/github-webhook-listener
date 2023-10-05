@@ -15,16 +15,16 @@ Mappings:
     local: 
       grader: local-grader
     remote: 
-      grader: ecr-url
+      grader: "a"
 
 # More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
     Timeout: 3
-    MemorySize: 128
+    MemorySize: 512
 
 Resources:
-  GraderTriggerFunction:
+  GraderTriggerLambdaFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
       CodeUri: functions/grader-trigger-function/
@@ -33,40 +33,35 @@ Resources:
       Architectures:
         - x86_64
       Events:
-        HelloWorld:
+        GithubWebhook:
           Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
           Properties:
-            Path: /grade
-            Method: get
-
-  GraderFunction:
+            Path: /grade/{id}
+            Method: post
+      Environment:
+        Variables:
+          GRADER_DELIVERY_QUEUE_URL: !Ref GraderQueue
+          
+  GraderImageFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
-    Properties:      
+    Properties:
       PackageType: Image
-      ImageUri: !FindInMap [Images, !Ref DevState, grader]
+      CodeUri: functions/grader-function/
       ImageConfig:
         Command: ["lambda_function.handler"]
       Events:
-        HelloWorld:
-          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+        GraderQueueTrigger:
+          Type: SQS 
           Properties:
-            Path: /grade/triggered
-            Method: get
+            Queue: !GetAtt GraderQueue.Arn
+            BatchSize: 5
+            Enabled: true
     Metadata:
-      DockerTag: grader-function
+      DockerTag:  v1
       DockerContext: ./functions/grader-function
-      DockerFile: Dockerfile
+      Dockerfile: Dockerfile
 
-Outputs:
-  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
-  # Find out more about other implicit resources you can reference within SAM
-  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  HelloWorldApi:
-    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
-  HelloWorldFunction:
-    Description: "Hello World Lambda Function ARN"
-    Value: !GetAtt HelloWorldFunction.Arn
-  HelloWorldFunctionIamRole:
-    Description: "Implicit IAM Role created for Hello World function"
-    Value: !GetAtt HelloWorldFunctionRole.Arn
+  GraderQueue:
+    Type: AWS::SQS::Queue
+    Properties: 
+      QueueName: "grader-delivery-queue"

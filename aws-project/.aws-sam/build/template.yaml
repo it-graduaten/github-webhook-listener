@@ -14,64 +14,57 @@ Mappings:
     local:
       grader: local-grader
     remote:
-      grader: ecr-url
+      grader: a
 Globals:
   Function:
     Timeout: 3
-    MemorySize: 128
+    MemorySize: 512
 Resources:
-  GraderTriggerFunction:
+  GraderTriggerLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: GraderTriggerFunction
+      CodeUri: GraderTriggerLambdaFunction
       Handler: app.lambda_handler
       Runtime: python3.11
       Architectures:
       - x86_64
       Events:
-        HelloWorld:
+        GithubWebhook:
           Type: Api
           Properties:
-            Path: /grade
-            Method: get
+            Path: /grade/{id}
+            Method: post
+      Environment:
+        Variables:
+          GRADER_DELIVERY_QUEUE_URL:
+            Ref: GraderQueue
     Metadata:
-      SamResourceId: GraderTriggerFunction
-  GraderFunction:
+      SamResourceId: GraderTriggerLambdaFunction
+  GraderImageFunction:
     Type: AWS::Serverless::Function
     Properties:
       PackageType: Image
-      ImageUri:
-        Fn::FindInMap:
-        - Images
-        - Ref: DevState
-        - grader
+      CodeUri: functions/grader-function/
       ImageConfig:
         Command:
         - lambda_function.handler
       Events:
-        HelloWorld:
-          Type: Api
+        GraderQueueTrigger:
+          Type: SQS
           Properties:
-            Path: /grade/triggered
-            Method: get
+            Queue:
+              Fn::GetAtt:
+              - GraderQueue
+              - Arn
+            BatchSize: 5
+            Enabled: true
+      ImageUri: graderimagefunction:v1
     Metadata:
-      DockerTag: grader-function
-      DockerContext: ./functions/grader-function
-      DockerFile: Dockerfile
-Outputs:
-  HelloWorldApi:
-    Description: API Gateway endpoint URL for Prod stage for Hello World function
-    Value:
-      Fn::Sub: https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/
-  HelloWorldFunction:
-    Description: Hello World Lambda Function ARN
-    Value:
-      Fn::GetAtt:
-      - HelloWorldFunction
-      - Arn
-  HelloWorldFunctionIamRole:
-    Description: Implicit IAM Role created for Hello World function
-    Value:
-      Fn::GetAtt:
-      - HelloWorldFunctionRole
-      - Arn
+      DockerContext: /home/mitch/github-webhook-listener/aws-project/functions/grader-function
+      DockerTag: v1
+      Dockerfile: Dockerfile
+      SamResourceId: GraderImageFunction
+  GraderQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: grader-delivery-queue

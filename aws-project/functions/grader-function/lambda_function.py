@@ -8,7 +8,7 @@ def handler(event, context):
         body = json.loads(record['body'])
         print(body)
         
-        # PUll required files based on the input gained from the record
+        # Pull required files based on the input gained from the record
         # Run tests
         # publish results to canvas
         # Clean up

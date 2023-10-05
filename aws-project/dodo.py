@@ -8,8 +8,8 @@ def task_start_api():
         'actions': [
             build_grader_image_cmd(),
             'docker pull public.ecr.aws/sam/build-python3.11:latest-x86_64'
-            'sam build --use-container --cached'
-            'sam local start-api -p 3030'    
+            ' && sam build --use-container --cached'
+            ' && sam local start-api -p 3030'    
         ]
     }
     
@@ -20,5 +20,14 @@ def task_invoke_grader():
         'actions': [
             build_grader_image_cmd(),
             'sam local invoke GraderFunction -e ./events/grade-student-project.json'
+        ]
+    }
+    
+def task_deploy_to_aws():
+    """Deploy the stack to AWS"""
+    yield {
+        'name': 'deploy_to_aws',
+        'actions': [
+            'sam build --use-container --cached && sam deploy'
         ]
     }
