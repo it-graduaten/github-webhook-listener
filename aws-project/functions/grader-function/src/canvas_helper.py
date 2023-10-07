@@ -5,109 +5,84 @@ from datetime import datetime
 import pytz
 
 
-class CanvasManager:
-    def __init__(self, logger, canvas_course_id):
-        self.logger = logger
-        self.utc = pytz.UTC
-        self.canvas = self.get_canvas_obj()
-        self.course = self.get_course(canvas_course_id)
-        self.all_students_in_course = self.get_students()
-        self.all_assignments_in_course = list(self.course.get_assignments())
+def create_canvas_object():
+    canvas = Canvas(os.environ.get('CANVAS_API_URL'), os.environ.get('CANVAS_API_KEY'))
+    return canvas
 
-    def get_canvas_obj(self):
-        canvas = Canvas(os.environ.get('CANVAS_API_URL'), os.environ.get('CANVAS_API_KEY'))
-        return canvas
 
-    def get_course(self, course_id):
-        course = self.canvas.get_course(course_id)
-        if course is None:
-            self.logger.debug(f'No course found with id {course_id}')
-            return None
-        return course
+def get_course(canvas_obj, course_id):
+    course = canvas_obj.get_course(course_id)
+    if course is None:
+        print(f"Course with id {course_id} not found")
+        return None
+    return course
 
-    def get_students(self):
-        students = self.course.get_users(enrollment_type=['student'])
-        return students
 
-    def filter_exercises_on_due_date(self, assignments):
-        exercises_to_grade = []
-        for exercise in assignments:
-            self.logger.debug(f'Found exercise {exercise.name} with due date {exercise.due_at}')
-            if exercise.due_at is None:
-                continue
-            now = datetime.utcnow().replace(tzinfo=self.utc)
-            due_at = datetime.strptime(exercise.due_at, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=self.utc)
-            if now < due_at:
-                exercises_to_grade.append(exercise)
+def get_all_students_in_course(course_obj):
+    students = course_obj.get_users(enrollment_type=['student'])
+    return students
 
-        self.logger.debug(f'Found {len(exercises_to_grade)} exercises to grade')
-        return exercises_to_grade
 
-    def get_all_exercises_in_assignment_group(self, assignment_group_name):
-        self.logger.debug(f'Getting all exercises in assignment group {assignment_group_name}')
-        assignment_groups = self.course.get_assignment_groups()
-        assignment_group = None
-        for ag in assignment_groups:
-            if ag.name == assignment_group_name:
-                assignment_group = ag
-                break
-        if assignment_group is None:
-            self.logger.debug(f'No assignment group found with name {assignment_group_name}')
-            return []
-        assignments = self.course.get_assignments_for_group(assignment_group.id)
-        assignments = list(assignments)
-        self.logger.debug(f'Found {len(assignments)} assignments in assignment group {assignment_group_name}')
-        return assignments
+def get_all_exercises_in_assignment_group(course_obj, assignment_group_name):
+    assignment_groups = course_obj.get_assignment_groups()
+    assignment_group = None
+    for ag in assignment_groups:
+        if ag.name == assignment_group_name:
+            assignment_group = ag
+            break
+    if assignment_group is None:
+        print(f'No assignment group found with name {assignment_group_name}')
+        return []
+    assignments = course_obj.get_assignments_for_group(assignment_group.id)
+    assignments = list(assignments)
+    return assignments
 
-    def upload_results(self, student_identifier, results):
-        self.logger.debug(f'Uploading results for {student_identifier}')
-        # Find the student to update, based on the student identifier
-        student_to_update = next(
-            (item for item in self.all_students_in_course if student_identifier in item.sis_user_id), None)
 
-        # If no student is found, log this and return
-        if student_to_update is None:
-            self.logger.debug(f'No student found with identifier {student_identifier}')
+def upload_grade(canvas_course_id, student_identifier, assignment_name, grade, push_timestamp):
+    # Create a canvas object
+    canvas = create_canvas_object()
+    # Get the course
+    course = get_course(canvas, canvas_course_id)
+    # Get all students
+    all_students_in_course = get_all_students_in_course(course)
+    # Find the student
+    student_to_update = next(
+        (item for item in all_students_in_course if student_identifier in item.sis_user_id), None)
+
+    if student_to_update is None:
+        print(f'Could not find student with identifier {student_identifier}')
+        return
+
+    # Replace underscores with dots, so it matches the name on Canvas
+    assignment_name = assignment_name.replace('_', '.')
+    # Get all assignments in the assignment group
+    # TODO: Change this to the correct assignment group name using config
+    all_assignments_in_assignment_group = get_all_exercises_in_assignment_group(course, 'Permanente evaluatie')
+    # Find the assignment
+    assignments_where_name = [item for item in all_assignments_in_assignment_group if assignment_name in item.name]
+
+    if len(assignments_where_name) == 0:
+        print(f'Could not find assignment with name {assignment_name}')
+        return
+
+    if len(assignments_where_name) > 1:
+        print(f'Found multiple assignments with name {assignment_name}')
+        return
+
+    assignment_to_update = assignments_where_name[0]
+
+    # If the due date of the assignment is before the push_timestamp, don't update the grade
+    if assignment_to_update.due_at is not None:
+        if assignment_to_update.due_at < push_timestamp:
+            print(f'Assignment {assignment_to_update.name} was due before the push timestamp, not updating grade')
             return
 
-        for exercise in results:
-            exercise_name = exercise["assignment"].replace("_", ".")
-            grade = exercise["grade"]
-            run_at_utc_datetime = exercise["run_at_utc_datetime"]
-
-            if self.all_assignments_in_course == 0:
-                self.logger.debug(f'No exercise found for {exercise_name}')
-                continue
-
-            # Find the assignment to update
-            assignments_with_name = [item for item in self.all_assignments_in_course if exercise_name in item.name]
-
-            if len(assignments_with_name) > 1:
-                self.logger.debug(f'Multiple assignments found for {exercise_name}')
-                continue
-
-            course_assignment = assignments_with_name[0]
-            submission = course_assignment.get_submission(student_to_update.id)
-            submission.edit(
-                submission={'posted_grade': grade},
-                comment={
-                    'text_comment': f'Last graded at {datetime.fromisoformat(run_at_utc_datetime).strftime("%Y-%m-%d %H:%M:%S")} with a score of {grade}'}
-            )
-            self.logger.debug(f'Updated grade for {exercise_name} to {grade}')
-
-    def manipulate_exercises(self, assignments):
-        exercises = []
-        for assignment in assignments:
-            name = assignment.name
-            due_at = None if (assignment.due_at is None) else datetime.strptime(assignment.due_at,
-                                                                                "%Y-%m-%dT%H:%M:%S%z").replace(
-                tzinfo=self.utc)
-            assignment_id = assignment.id
-            exercise = {
-                'name': name.replace('.', '_').replace("*", ""),
-                'due_at': due_at,
-                'id': assignment_id
-            }
-            self.logger.debug(f'Found exercise {name} with due date {due_at}')
-            exercises.append(exercise)
-        return exercises
+    # Update the grade
+    submission = assignment_to_update.get_submission(student_to_update.id)
+    # TODO: Add a link to an html page where the user can see the test results
+    submission.edit(
+        submission={'posted_grade': grade},
+        comment={
+            'text_comment': f'Graded using the automatic grader'}
+    )
+    print(f'Updated grade for student {student_to_update.name} to {grade} in assignment {assignment_to_update.name}')

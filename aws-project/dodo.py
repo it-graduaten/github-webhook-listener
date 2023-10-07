@@ -19,7 +19,7 @@ def task_invoke_grader():
         'name': 'invoke_grader',
         'actions': [
             build_grader_image_cmd(),
-            'sam local invoke GraderFunction -e ./events/grade-student-project.json'
+            'sam local invoke GraderImageFunction -e ./events/grade-student-project.json'
         ]
     }
     
