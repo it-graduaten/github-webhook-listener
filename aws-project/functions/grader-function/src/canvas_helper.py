@@ -38,7 +38,7 @@ def get_all_exercises_in_assignment_group(course_obj, assignment_group_name):
     return assignments
 
 
-def upload_grade(canvas_course_id, student_identifier, assignment_name, grade, push_timestamp):
+def upload_grades(canvas_course_id, student_identifier, push_timestamp, assignments_with_grade):
     # Create a canvas object
     canvas = create_canvas_object()
     # Get the course
@@ -53,36 +53,40 @@ def upload_grade(canvas_course_id, student_identifier, assignment_name, grade, p
         print(f'Could not find student with identifier {student_identifier}')
         return
 
-    # Replace underscores with dots, so it matches the name on Canvas
-    assignment_name = assignment_name.replace('_', '.')
     # Get all assignments in the assignment group
     # TODO: Change this to the correct assignment group name using config
     all_assignments_in_assignment_group = get_all_exercises_in_assignment_group(course, 'Permanente evaluatie')
-    # Find the assignment
-    assignments_where_name = [item for item in all_assignments_in_assignment_group if assignment_name in item.name]
 
-    if len(assignments_where_name) == 0:
-        print(f'Could not find assignment with name {assignment_name}')
-        return
+    for assignment_with_grade in assignments_with_grade:
+        # Replace underscores with dots, so it matches the name on Canvas
+        assignment_name = assignment_with_grade['assignment'].replace('_', '.')
+        # Get the grade
+        grade = assignment_with_grade['grade']        
+        # Find the assignment that matches the name, so we can update it
+        assignments_where_name = [item for item in all_assignments_in_assignment_group if assignment_name in item.name]
 
-    if len(assignments_where_name) > 1:
-        print(f'Found multiple assignments with name {assignment_name}')
-        return
-
-    assignment_to_update = assignments_where_name[0]
-
-    # If the due date of the assignment is before the push_timestamp, don't update the grade
-    if assignment_to_update.due_at is not None:
-        if assignment_to_update.due_at < push_timestamp:
-            print(f'Assignment {assignment_to_update.name} was due before the push timestamp, not updating grade')
+        if len(assignments_where_name) == 0:
+            print(f'Could not find assignment with name {assignment_name}')
             return
 
-    # Update the grade
-    submission = assignment_to_update.get_submission(student_to_update.id)
-    # TODO: Add a link to an html page where the user can see the test results
-    submission.edit(
-        submission={'posted_grade': grade},
-        comment={
-            'text_comment': f'Graded using the automatic grader'}
-    )
-    print(f'Updated grade for student {student_to_update.name} to {grade} in assignment {assignment_to_update.name}')
+        if len(assignments_where_name) > 1:
+            print(f'Found multiple assignments with name {assignment_name}')
+            return
+
+        assignment_to_update = assignments_where_name[0]
+
+        # If the due date of the assignment is before the push_timestamp, don't update the grade
+        if assignment_to_update.due_at is not None:
+            if assignment_to_update.due_at < push_timestamp:
+                print(f'Assignment {assignment_to_update.name} was due before the push timestamp, not updating grade')
+                return
+
+        # Update the grade
+        submission = assignment_to_update.get_submission(student_to_update.id)
+        # TODO: Add a link to an html page where the user can see the test results
+        submission.edit(
+            submission={'posted_grade': grade},
+            comment={
+                'text_comment': f'Graded using the automatic grader'}
+        )
+        print(f'Updated grade for student {student_to_update.name} to {grade} in assignment {assignment_to_update.name}')
