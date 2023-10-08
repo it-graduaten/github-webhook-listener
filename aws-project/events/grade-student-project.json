@@ -3,7 +3,7 @@
     {
       "messageId": "19dd0b57-b21e-4ac1-bd88-01bbb068cb78",
       "receiptHandle": "MessageReceiptHandle",
-      "body": "{\"repo_full_name\":\"JorenSynaeveTM/oefeningen-oop-test-repo\",\"repo_id\":646257044,\"timestamp\":\"2023-10-06T11:40:28+02:00\",\"files_changed\":[\"04/04_02/console/Program.cs\",\"03/03_04/console/Program.cs\",\"03/03_03/console/Program.cs\",\"03/03_02/models/Test.cs\",\"04/04_02/models/TestClass.cs\"]}",
+      "body": "{\"canvas_course_id\":10139,\"student_repo_full_name\":\"it-graduaten/oefeningen-JorenSynaeveTM\",\"repo_id\":693588884,\"timestamp\":\"2023-10-06T11:40:28+02:00\",\"solution_repo_full_name\":\"it-graduaten/programmingessentials\",\"changed_files\":[\"01/01_00/consoleapp/Program.cs\",\"01/01_01/consoleapp/Program.cs\"]}",
       "attributes": {
         "ApproximateReceiveCount": "1",
         "SentTimestamp": "1523232000000",
