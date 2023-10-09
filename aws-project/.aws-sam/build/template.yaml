@@ -17,7 +17,7 @@ Mappings:
       grader: a
 Globals:
   Function:
-    Timeout: 3
+    Timeout: 5
     MemorySize: 512
 Resources:
   GraderTriggerLambdaFunction:
@@ -45,6 +45,7 @@ Resources:
     Properties:
       PackageType: Image
       CodeUri: functions/grader-function/
+      Timeout: 600
       ImageConfig:
         Command:
         - lambda_function.handler
@@ -58,6 +59,11 @@ Resources:
               - Arn
             BatchSize: 5
             Enabled: true
+      Environment:
+        Variables:
+          CANVAS_API_URL: ''
+          CANVAS_API_KEY: ''
+          GITHUB_ACCESS_TOKEN: ''
       ImageUri: graderimagefunction:v1
     Metadata:
       DockerContext: /home/mitch/github-webhook-listener/aws-project/functions/grader-function

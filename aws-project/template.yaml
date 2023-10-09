@@ -20,7 +20,7 @@ Mappings:
 # More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
-    Timeout: 3
+    Timeout: 5
     MemorySize: 512
 
 Resources:
@@ -47,6 +47,7 @@ Resources:
     Properties:
       PackageType: Image
       CodeUri: functions/grader-function/
+      Timeout: 600
       ImageConfig:
         Command: ["lambda_function.handler"]
       Events:

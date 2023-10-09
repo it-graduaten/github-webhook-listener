@@ -34,9 +34,9 @@ def handler(event, context):
 
 def process_record(record):
     # Print the env variable
-    print(f"CANVAS_API_URL: {os.environ['CANVAS_API_URL']}")
-    print(f"CANVAS_API_KEY: {os.environ['CANVAS_API_KEY']}")
-    print(f"GITHUB_ACCESS_TOKEN: {os.environ['GITHUB_ACCESS_TOKEN']}")
+    print(f"CANVAS_API_URL: {os.environ.get('CANVAS_API_URL')}")
+    print(f"CANVAS_API_KEY: {os.environ.get('CANVAS_API_KEY')}")
+    print(f"GITHUB_ACCESS_TOKEN: {os.environ.get('GITHUB_ACCESS_TOKEN')}")
 
     # Convert the record to a JSON object
     payload = json.loads(record["body"])
