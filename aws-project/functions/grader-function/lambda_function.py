@@ -5,6 +5,7 @@ import json
 import shutil
 
 import subprocess
+import time
 
 from src.github_helper import download_folder_from_repo
 from src.xmlresult_helper import get_test_results_grade
@@ -97,15 +98,20 @@ def process_record(record):
                       assignments_with_grade=grades)
     except Exception as e:
         print(f"Error while uploading grades: {e}")
-        
-        
+
 def run_command(command):
     process = subprocess.Popen(command.split(" "), stdout=subprocess.PIPE)
     while True:
-        output = process.stdout.readline()
-        if output == '' and process.poll() is not None:
+        try:
+            output = process.stdout.readline().decode('utf-8')
+            if not output:
+                break
+            print(f"[CMD] {output.strip()}")
+        except Exception as e:
+            print(f"Error: {e}")
             break
-        if output:
-            print(f"[CMD] {output.strip().decode('utf-8')}")
+
+        time.sleep(0.1)
+
     rc = process.poll()
     return rc
