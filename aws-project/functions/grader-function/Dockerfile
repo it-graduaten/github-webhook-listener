@@ -16,4 +16,5 @@ RUN pip install -r requirements.txt && rm ${LAMBDA_TASK_ROOT}/requirements.txt
 COPY lambda_function.py ${LAMBDA_TASK_ROOT}
 COPY src ${LAMBDA_TASK_ROOT}/src
 
+# TODO: Remove this line when using actual s3 bucket
 COPY s3-mock ${LAMBDA_TASK_ROOT}/s3-mock
