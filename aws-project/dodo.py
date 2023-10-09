@@ -24,7 +24,7 @@ def task_invoke_grader():
         'actions': [
             pull_python_aws_runtime(),
             build_grader_image_cmd(),
-            'sam local invoke GraderImageFunction -e ./events/grade-student-project.json'
+            'sam local invoke --env-vars ./env.json GraderImageFunction -e ./events/grade-student-project.json'
         ]
     }
     
