@@ -3,7 +3,7 @@
     {
       "messageId": "19dd0b57-b21e-4ac1-bd88-01bbb068cb78",
       "receiptHandle": "MessageReceiptHandle",
-      "body": "{\"canvas_course_id\":10139,\"student_repo_full_name\":\"it-graduaten/oefeningen-JorenSynaeveTM\",\"repo_id\":693588884,\"timestamp\":\"2023-10-06T11:40:28+02:00\",\"solution_repo_full_name\":\"it-graduaten/programmingessentials\",\"changed_files\":[\"01/01_00/consoleapp/Program.cs\",\"01/01_01/consoleapp/Program.cs\"]}",
+      "body": "{\"github_classroom_id\":187887,\"github_classroom_assignment_id\":488746,\"canvas_course_id\":10139,\"student_repo_full_name\":\"it-graduaten/oefeningen-JorenSynaeveTM\",\"repo_id\":693588884,\"student_github_id\":111964430,\"timestamp\":\"2023-10-06T11:40:28+02:00\",\"solution_repo_full_name\":\"it-graduaten/programmingessentials\",\"changed_files\":[\"01/01_00/consoleapp/Program.cs\",\"01/01_01/consoleapp/Program.cs\"]}",
       "attributes": {
         "ApproximateReceiveCount": "1",
         "SentTimestamp": "1523232000000",
