@@ -11,11 +11,11 @@ manifest_hash = ""
 packagetype = "Zip"
 functions = ["GraderTriggerLambdaFunction"]
 
-[function_build_definitions.41774a1b-e63b-4ad0-813e-3856ae5aed28]
+[function_build_definitions.76a74cf5-f071-4184-8628-fb1549d61e8e]
 packagetype = "Image"
 functions = ["GraderImageFunction"]
 
-[function_build_definitions.41774a1b-e63b-4ad0-813e-3856ae5aed28.metadata]
+[function_build_definitions.76a74cf5-f071-4184-8628-fb1549d61e8e.metadata]
 DockerTag = "v1"
 DockerContext = "/home/mitch/github-webhook-listener/aws-project/functions/grader-function"
 Dockerfile = "Dockerfile"

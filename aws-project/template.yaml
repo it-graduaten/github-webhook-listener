@@ -48,7 +48,7 @@ Resources:
     Properties:
       PackageType: Image
       CodeUri: functions/grader-function/
-      Timeout: 600
+      Timeout: 120
       MemorySize: 1024
       ImageConfig:
         Command: ["lambda_function.handler"]
@@ -66,6 +66,10 @@ Resources:
           GITHUB_ACCESS_TOKEN: ""
           XDG_DATA_HOME: "/tmp/"
           DOTNET_CLI_HOME: "/tmp/"
+          DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+          NUGET_PACKAGES: "/tmp/"
+          DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+          DOTNET_RUNNING_IN_CONTAINER: "true"
     Metadata:
       DockerTag:  v1
       DockerContext: ./functions/grader-function

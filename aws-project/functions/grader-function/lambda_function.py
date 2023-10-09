@@ -72,7 +72,7 @@ def process_record(record):
             shutil.copy(os.path.join(assignment_folder, "student", chapter, assignment, "consoleapp", "Program.cs"),
                         os.path.join(assignment_folder, "solution", chapter, assignment, "consoleapp", "Program.cs"))
             # Run the tests
-            test_command = f"dotnet test {assignment_folder}/solution/{chapter}/{assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\""
+            test_command = f"dotnet test {assignment_folder}/solution/{chapter}/{assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\" -nodereuse:false --verbosity d"
             run_command(test_command)
             
             # Get a grade
