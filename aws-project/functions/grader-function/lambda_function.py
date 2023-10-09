@@ -4,6 +4,8 @@ import os
 import json
 import shutil
 
+import subprocess
+
 from src.github_helper import download_folder_from_repo
 from src.xmlresult_helper import get_test_results_grade
 from src.canvas_helper import upload_grades
@@ -70,7 +72,8 @@ def process_record(record):
                         os.path.join(assignment_folder, "solution", chapter, assignment, "consoleapp", "Program.cs"))
             # Run the tests
             test_command = f"dotnet test {assignment_folder}/solution/{chapter}/{assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\""
-            os.system(test_command)
+            run_command(test_command)
+            
             # Get a grade
             grade = get_test_results_grade(
                 f"{assignment_folder}/solution/{chapter}/{assignment}/test/TestResults/result.xml")
@@ -94,3 +97,15 @@ def process_record(record):
                       assignments_with_grade=grades)
     except Exception as e:
         print(f"Error while uploading grades: {e}")
+        
+        
+def run_command(command):
+    process = subprocess.Popen(command.split(" "), stdout=subprocess.PIPE)
+    while True:
+        output = process.stdout.readline()
+        if output == '' and process.poll() is not None:
+            break
+        if output:
+            print(f"[CMD] {output.strip().decode('utf-8')}")
+    rc = process.poll()
+    return rc

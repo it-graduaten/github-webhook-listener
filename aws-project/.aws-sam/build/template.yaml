@@ -26,6 +26,10 @@ Resources:
       CodeUri: GraderTriggerLambdaFunction
       Handler: app.lambda_handler
       Runtime: python3.11
+      Role:
+        Fn::GetAtt:
+        - GraderRole
+        - Arn
       Architectures:
       - x86_64
       Events:
@@ -46,6 +50,7 @@ Resources:
       PackageType: Image
       CodeUri: functions/grader-function/
       Timeout: 600
+      MemorySize: 1024
       ImageConfig:
         Command:
         - lambda_function.handler
@@ -64,12 +69,39 @@ Resources:
           CANVAS_API_URL: ''
           CANVAS_API_KEY: ''
           GITHUB_ACCESS_TOKEN: ''
+          XDG_DATA_HOME: /tmp/
+          DOTNET_CLI_HOME: /tmp/
       ImageUri: graderimagefunction:v1
     Metadata:
       DockerContext: /home/mitch/github-webhook-listener/aws-project/functions/grader-function
       DockerTag: v1
       Dockerfile: Dockerfile
       SamResourceId: GraderImageFunction
+  GraderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: sqs:SendMessage
+            Resource:
+              Fn::GetAtt:
+              - GraderQueue
+              - Arn
   GraderQueue:
     Type: AWS::SQS::Queue
     Properties:

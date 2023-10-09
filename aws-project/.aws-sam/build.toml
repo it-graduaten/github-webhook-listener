@@ -6,16 +6,16 @@ codeuri = "/home/mitch/github-webhook-listener/aws-project/functions/grader-trig
 runtime = "python3.11"
 architecture = "x86_64"
 handler = "app.lambda_handler"
-source_hash = "67b4ee7319d9268d17edf4e7ccf9775c91bc33fe8985ebf18baacb1bb301a0ea"
+source_hash = "b87baa457bc25e2c122c6ac29f59ddd9f0c9294db8981e1b4b4c039964eff33f"
 manifest_hash = ""
 packagetype = "Zip"
 functions = ["GraderTriggerLambdaFunction"]
 
-[function_build_definitions.64798df6-ce1b-47d8-a032-eeddc632dec0]
+[function_build_definitions.71c57710-bd47-479e-8516-7931c66f102d]
 packagetype = "Image"
 functions = ["GraderImageFunction"]
 
-[function_build_definitions.64798df6-ce1b-47d8-a032-eeddc632dec0.metadata]
+[function_build_definitions.71c57710-bd47-479e-8516-7931c66f102d.metadata]
 DockerTag = "v1"
 DockerContext = "/home/mitch/github-webhook-listener/aws-project/functions/grader-function"
 Dockerfile = "Dockerfile"

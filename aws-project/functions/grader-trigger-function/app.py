@@ -1,7 +1,11 @@
 import json
 import os
+import boto3
 
 from src.payload_helper import get_changed_files
+
+sqs = boto3.client('sqs')
+QUEUE_URL = os.environ.get("GRADER_DELIVERY_QUEUE_URL")
 
 
 def lambda_handler(event, context):
@@ -63,5 +67,9 @@ def validate_request(request):
 
 
 def create_grading_request(request_body):
-    # Create Grading request aka. all the necessary information from the request (Webhook) + additional config
+    sqs.send_message(
+        QueueUrl=QUEUE_URL,
+        MessageBody=json.dumps(request_body)
+    )
     pass
+    
