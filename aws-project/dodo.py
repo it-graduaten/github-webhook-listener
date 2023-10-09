@@ -1,5 +1,9 @@
 def build_grader_image_cmd():
-    return 'cd ./functions/grader-function && docker build . -t local-grader'
+    return 'cd ./functions/grader-function && docker build . -t graderimagefunction:v1'
+
+def pull_python_aws_runtime():
+    return 'docker pull public.ecr.aws/sam/build-python3.11:latest-x86_64'
+    
     
 def task_start_api():
     """Build the container and start the api"""
@@ -18,6 +22,7 @@ def task_invoke_grader():
     yield {
         'name': 'invoke_grader',
         'actions': [
+            pull_python_aws_runtime(),
             build_grader_image_cmd(),
             'sam local invoke GraderImageFunction -e ./events/grade-student-project.json'
         ]
