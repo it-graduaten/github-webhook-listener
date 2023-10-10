@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  sam-app
+
+  Sample SAM Template for sam-app
+
+Parameters:
+  DevState:
+    Type: String
+    Default: local
+
+Globals:
+  Function:
+    Timeout: 5
+    MemorySize: 128
+
+Resources:
+  GraderTriggerLambdaFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      CodeUri: functions/grader-trigger-function/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Role: !GetAtt GraderRole.Arn
+      Architectures:
+        - x86_64
+      Events:
+        GithubWebhook:
+          Type: Api
+            Path: /grade/{id}
+            Method: post
+      Environment:
+        Variables:
+          GRADER_DELIVERY_QUEUE_URL: !Ref GraderQueue
+
+  GraderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: 'sqs:SendMessage'
+                Resource: !GetAtt GraderQueue.Arn
+
+  GraderQueue:
+    Type: AWS::SQS::Queue
+    Properties: 
+      QueueName: "grader-delivery-queue"
+      VisibilityTimeout: 120
+      

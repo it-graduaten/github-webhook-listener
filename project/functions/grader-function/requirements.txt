@@ -1,0 +1,10 @@
+boto3
+PyGithub
+pygit2
+pydantic
+canvasapi
+pytz
+gitdb==4.0.10
+GitPython==3.1.31
+pandas
+awsiot-credentialhelper

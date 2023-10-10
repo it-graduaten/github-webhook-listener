@@ -16,3 +16,9 @@ logs/
 .idea/
 
 aws
+
+.aws-config/credentials
+.aws-config/certs
+.aws-sam
+.doit.db.db
+virtual_env
