@@ -1,4 +1,6 @@
 import xml.etree.ElementTree as ET
+import chevron
+
 
 def get_test_results_grade(path_to_xml):
     namespace = "{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}"
@@ -8,7 +10,7 @@ def get_test_results_grade(path_to_xml):
 
     # TODO: Generate a report the user can see
     # for el in root.iter(f'{namespace}UnitTestResult'):
-        # print(el.tag)
+    # print(el.tag)
 
     # Get the result summary
     result_summary = root.find(f'{namespace}ResultSummary')
@@ -25,7 +27,15 @@ def get_test_results_grade(path_to_xml):
     return grade
 
 
+def generate_html_report(template_path, output_path, data):
+    # Read the template
+    with open(template_path, 'r') as f:
+        result = chevron.render(f, data)
+    f.close()
 
+    # Write the result
+    with open(output_path, 'w') as f:
+        f.write(result)
+    f.close()
 
-
-   
+    return output_path

@@ -1,4 +1,4 @@
-from src.xmlresult_helper import get_test_results_grade
+from src.xmlresult_helper import get_test_results_grade, generate_html_report
 from src.github_helper import download_folder_from_repo, get_student_identifier_from_classroom
 from src.canvas_manager import CanvasAPIManager
 import sys
@@ -46,8 +46,7 @@ def process_record(record):
     # Create canvas credentials
     canvas_credentials = {'api_key': CANVAS_API_KEY, 'api_url': CANVAS_API_URL}
     # Create a canvas api manager
-    canvas_api_manager = CanvasAPIManager(
-        canvas_credentials, payload['canvas_course_id'])
+    canvas_api_manager = CanvasAPIManager(canvas_credentials, payload['canvas_course_id'])
     # Get the student identifier
     download_folder_from_repo(
         token=GITHUB_ACCESS_TOKEN,
@@ -60,6 +59,14 @@ def process_record(record):
         payload['student_github_id']
     )
     push_timestamp = payload['push_timestamp']
+
+    # Download the report templates
+    download_folder_from_repo(
+        token=GITHUB_ACCESS_TOKEN,
+        repo_full_name="it-graduaten/tm-autograder-config",
+        branch="main",
+        folder_to_download="report-templates"
+    )
 
     # TODO: Check if this can be done asynchrously to run multiple tests at the same time
     for changed_file in payload['changed_files']:
@@ -107,13 +114,19 @@ def process_record(record):
             # Run the tests
             test_command = f"dotnet test {assignment_folder}/solution/{chapter}/{assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\""
             run_command(test_command)
+            path_to_result_xml = f"{assignment_folder}/solution/{chapter}/{assignment}/test/TestResults/result.xml"
 
             # Get a grade
-            grade = get_test_results_grade(
-                f"{assignment_folder}/solution/{chapter}/{assignment}/test/TestResults/result.xml")
+            grade = get_test_results_grade(path_to_result_xml)
+            # Create a report
+            data = {'assignment': assignment_name, 'grade': grade}
+            path_to_report = generate_html_report(
+                template_path=os.path.join(TMP_FOLDER, "report-templates", "console_app.html"),
+                output_path=f"{assignment_folder}/report.html",
+                data=data)
             # Update the grade
             canvas_api_manager.update_grade(
-                student_identifier, canvas_assignment, grade)
+                student_identifier, canvas_assignment, grade, path_to_report)
         except Exception as e:
             print(f"Error while processing file {changed_file}: {e}")
         finally:
