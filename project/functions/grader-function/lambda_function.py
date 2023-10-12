@@ -1,7 +1,5 @@
-from src.classroom_helper import get_student_identifier
-from src.canvas_helper import upload_grades, get_all_exercises_in_assignment_group
 from src.xmlresult_helper import get_test_results_grade
-from src.github_helper import download_folder_from_repo
+from src.github_helper import download_folder_from_repo, get_student_identifier_from_classroom
 from src.canvas_manager import CanvasAPIManager
 import sys
 
@@ -51,8 +49,15 @@ def process_record(record):
     canvas_api_manager = CanvasAPIManager(
         canvas_credentials, payload['canvas_course_id'])
     # Get the student identifier
-    student_identifier = get_student_identifier(
-        payload['github_classroom_id'], payload['student_github_id']
+    download_folder_from_repo(
+        token=GITHUB_ACCESS_TOKEN,
+        repo_full_name="it-graduaten/tm-autograder-config",
+        branch="main",
+        folder_to_download="github-classroom-rosters"
+    )
+    student_identifier = get_student_identifier_from_classroom(
+        os.path.join(TMP_FOLDER, "github-classroom-rosters", f"{payload['github_classroom_id']}.csv"),
+        payload['student_github_id']
     )
     push_timestamp = payload['push_timestamp']
 
@@ -67,6 +72,7 @@ def process_record(record):
         # Get the according assignment from the canvas assignments
         canvas_assignment = canvas_api_manager.get_assignment_by_name(assignment_name)
 
+        # If the assignment is not found, it can be skipped
         if canvas_assignment is None:
             print(f'Could not find assignment with name {assignment_name}. Skipped grading for this assignment')
             continue
@@ -113,7 +119,7 @@ def process_record(record):
         finally:
             # Clean up
             print("Cleaning up")
-            shutil.rmtree(assignment_folder)
+            shutil.rmtree(TMP_FOLDER)
 
 
 def run_command(command):
