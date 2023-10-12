@@ -20,8 +20,21 @@ class CanvasAPIManager:
         students = self.course.get_users(enrollment_type=['student'])
         return students
 
+    def get_assignment_by_name(self, assignment_name):
+        if self.course is None:
+            self.get_course()
+        assignments = list(self.course.get_assignments(search_term=assignment_name))
+        if len(assignments) == 0:
+            print(f'No assignment found with name {assignment_name}')
+            return None
+        if len(assignments) > 1:
+            print(f'Found multiple assignments with name {assignment_name}')
+            return None
+        return assignments[0]
+
     def get_all_assignments_in_assignment_group(self, assignment_group_name):
-        print(f'Getting all assignments in assignment group {assignment_group_name}')
+        print(
+            f'Getting all assignments in assignment group {assignment_group_name}')
         if self.course is None:
             self.get_course()
         assignment_groups = self.course.get_assignment_groups()
@@ -34,7 +47,8 @@ class CanvasAPIManager:
             print(
                 f'No assignment group found with name {assignment_group_name}')
             return []
-        assignments = self.course.get_assignments_for_group(assignment_group.id)
+        assignments = self.course.get_assignments_for_group(
+            assignment_group.id)
         assignments = list(assignments)
         return assignments
 
@@ -46,7 +60,8 @@ class CanvasAPIManager:
             (item for item in all_students_in_course if student_identifier in item.sis_user_id), None)
 
         if student_to_update is None:
-            print(f'Could not find student with identifier {student_identifier}')
+            print(
+                f'Could not find student with identifier {student_identifier}')
             print("Grade not updated")
             return
 
@@ -68,7 +83,8 @@ class CanvasAPIManager:
             (item for item in all_students_in_course if student_identifier in item.sis_user_id), None)
 
         if student_to_update is None:
-            print(f'Could not find student with identifier {student_identifier}')
+            print(
+                f'Could not find student with identifier {student_identifier}')
             return
 
         for assignment_with_grade in assignments_with_grade:

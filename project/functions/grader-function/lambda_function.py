@@ -48,9 +48,8 @@ def process_record(record):
     # Create canvas credentials
     canvas_credentials = {'api_key': CANVAS_API_KEY, 'api_url': CANVAS_API_URL}
     # Create a canvas api manager
-    canvas_api_manager = CanvasAPIManager(canvas_credentials, payload['canvas_course_id'])
-    # Get all the assignments in the assignment group TODO: Get the assignment group from the payload
-    canvas_assignments = canvas_api_manager.get_all_assignments_in_assignment_group('Permanente evaluatie')
+    canvas_api_manager = CanvasAPIManager(
+        canvas_credentials, payload['canvas_course_id'])
     # Get the student identifier
     student_identifier = get_student_identifier(
         payload['github_classroom_id'], payload['student_github_id']
@@ -66,21 +65,17 @@ def process_record(record):
         assignment = parts[1]
         assignment_name = assignment.replace("_", ".")
         # Get the according assignment from the canvas assignments
-        assignments_where_name = [item for item in canvas_assignments if assignment_name in item.name]
+        canvas_assignment = canvas_api_manager.get_assignment_by_name(assignment_name)
 
-        if len(assignments_where_name) == 0:
-            print(f'Could not find assignment with name {assignment_name}')
-            return
+        if canvas_assignment is None:
+            print(f'Could not find assignment with name {assignment_name}. Skipped grading for this assignment')
+            continue
 
-        if len(assignments_where_name) > 1:
-            print(f'Found multiple assignments with name {assignment_name}')
-            return
-
-        canvas_assignment = assignments_where_name[0]
         # If the due date of the assignment is before the push_timestamp, it can be skipped
         if canvas_assignment.due_at is not None:
             if canvas_assignment.due_at < push_timestamp:
-                print(f'Assignment {canvas_assignment.name} was due before the push timestamp, skipping')
+                print(
+                    f'Assignment {canvas_assignment.name} was due before the push timestamp, skipping')
                 continue
 
         # Assignment folder should be in the format: <tmp>/<chapter>-<assignment>
@@ -111,7 +106,8 @@ def process_record(record):
             grade = get_test_results_grade(
                 f"{assignment_folder}/solution/{chapter}/{assignment}/test/TestResults/result.xml")
             # Update the grade
-            canvas_api_manager.update_grade(student_identifier, canvas_assignment, grade)
+            canvas_api_manager.update_grade(
+                student_identifier, canvas_assignment, grade)
         except Exception as e:
             print(f"Error while processing file {changed_file}: {e}")
         finally:
