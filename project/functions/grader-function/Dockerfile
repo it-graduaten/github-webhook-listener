@@ -22,9 +22,6 @@ RUN pip install -r requirements.txt && rm ./requirements.txt
 COPY lambda_function.py .
 COPY src ./src
 
-# TODO: Remove this line when using actual s3 bucket
-COPY s3-mock ./s3-mock
-
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
 
