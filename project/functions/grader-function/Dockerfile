@@ -8,10 +8,9 @@ WORKDIR /usr/src/app
 RUN apt update 
 RUN apt install wget git python3 pip -y 
 
-RUN wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb 
-RUN dpkg -i packages-microsoft-prod.deb
-RUN apt update 
-RUN apt install dotnet-sdk-6.0 -y
+COPY ./scripts/dotnet-installer.sh .
+
+RUN bash ./dotnet-installer.sh
 
 RUN python3 -m pip install --upgrade pip
 RUN pip3 --no-cache-dir install --upgrade awscli
