@@ -68,16 +68,11 @@ class CanvasAPIManager:
 
         # Update the grade
         submission = assignment.get_submission(student_to_update.id)
-        # Get the file to attach
-        submission_attachment = os.path.join("s3-mock", "index.html")
+        # Attach a file with the results of the tests
         upload_result = submission.upload_comment(path_to_html_report)
-        comment = {'text_comment': f'Graded using the automatic grader'}
         if upload_result[0] is False:
             print("Error uploading attachment")
-        else:
-            comment['file_ids'] = [upload_result[1]['id']]
-
-        submission.edit(submission={'posted_grade': grade}, comment=comment)
+        submission.edit(submission={'posted_grade': grade})
         print(f'Updated grade for student {student_to_update.name} to {grade} in assignment {assignment.name}')
 
     def update_multiple_grades(self, student_identifier, push_timestamp, assignments_with_grade):
