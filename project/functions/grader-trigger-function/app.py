@@ -26,6 +26,7 @@ def lambda_handler(event, context):
         "canvas_course_id": config['canvas_course_id'],
         "github_classroom_id": config['github_classroom_id'],
         "solution_repo_full_name": config['solution_repo_full_name'],
+        "application_type": config['application_type'],
         "student_repo_full_name": event_body['repository']['full_name'],
         "student_github_id": event_body['sender']['id'],
         "push_timestamp": event_body['head_commit']['timestamp'],
