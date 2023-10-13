@@ -45,8 +45,6 @@ print(f"CANVAS_API_URL: {CANVAS_API_URL}")
 def process_record(record):
     # Convert the record to a JSON object
     payload = json.loads(record["Body"])
-    # TODO: Remove this line later, when config on lambda is updated
-    payload['application_type'] = APPLICATION_CONSOLE
     # Create canvas credentials
     canvas_credentials = {'api_key': CANVAS_API_KEY, 'api_url': CANVAS_API_URL}
     # Create a canvas api manager
