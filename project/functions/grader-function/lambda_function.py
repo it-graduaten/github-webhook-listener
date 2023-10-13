@@ -64,39 +64,43 @@ def process_record(record):
     assignments_to_grade = get_unique_assignments_to_grade(payload)
 
     for assignment_to_grade in assignments_to_grade:
-        chapter = assignment_to_grade['chapter']
-        assignment = assignment_to_grade['assignment']
-        assignment_name = assignment_to_grade['assignment_name']
-        # Get the according assignment from the canvas assignments
-        canvas_assignment = canvas_api_manager.get_assignment_by_name(assignment_name)
-        # Check if the assignment should be graded
-        should_grade = check_if_should_grade(canvas_assignment, push_timestamp, assignment_name)
-        if not should_grade:
-            print(f"Should not grade {assignment_name}")
-            continue
-        # Create the path to the assignment folder
-        assignment_folder = os.path.join(TMP_FOLDER, f"{chapter}-{assignment}")
-        # Check the application type
-        if payload['application_type'] == APPLICATION_CONSOLE:
-            grade, path_to_report = grade_console_app(
-                assignment=assignment,
-                assignment_folder=assignment_folder,
-                assignment_name=assignment_name,
-                chapter=chapter,
-                payload=payload,
-                push_timestamp=push_timestamp
-            )
-            # Update the grade on Canvas
-            canvas_api_manager.update_grade(student_identifier, canvas_assignment, grade, path_to_report)
-        elif payload['application_type'] == APPLICATION_CONSOLE_WITH_MODELS:
-            # Do something with console app with models
-            pass
-        else:
-            # Unknown application type
-            print(f"Unknown application type: {payload['application_type']}")
-            continue
-        # Clean up
-        shutil.rmtree(TMP_FOLDER)
+        try:
+            chapter = assignment_to_grade['chapter']
+            assignment = assignment_to_grade['assignment']
+            assignment_name = assignment_to_grade['assignment_name']
+            # Get the according assignment from the canvas assignments
+            canvas_assignment = canvas_api_manager.get_assignment_by_name(assignment_name)
+            # Check if the assignment should be graded
+            should_grade = check_if_should_grade(canvas_assignment, push_timestamp, assignment_name)
+            if not should_grade:
+                print(f"Should not grade {assignment_name}")
+                continue
+            # Create the path to the assignment folder
+            assignment_folder = os.path.join(TMP_FOLDER, f"{chapter}-{assignment}")
+            # Check the application type
+            if payload['application_type'] == APPLICATION_CONSOLE:
+                grade, path_to_report = grade_console_app(
+                    assignment=assignment,
+                    assignment_folder=assignment_folder,
+                    assignment_name=assignment_name,
+                    chapter=chapter,
+                    payload=payload,
+                    push_timestamp=push_timestamp
+                )
+                # Update the grade on Canvas
+                canvas_api_manager.update_grade(student_identifier, canvas_assignment, grade, path_to_report)
+            elif payload['application_type'] == APPLICATION_CONSOLE_WITH_MODELS:
+                # Do something with console app with models
+                pass
+            else:
+                # Unknown application type
+                print(f"Unknown application type: {payload['application_type']}")
+                continue
+        except Exception as e:
+            print(f"Error while processing {assignment_name}: {e}")
+        finally:
+            print("Cleaning up")
+            shutil.rmtree(TMP_FOLDER)
 
 
 def check_if_should_grade(canvas_assignment, push_timestamp, assignment_name):
