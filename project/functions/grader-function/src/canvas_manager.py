@@ -74,6 +74,18 @@ class CanvasAPIManager:
             print("Error uploading attachment")
         submission.edit(submission={'posted_grade': grade})
         print(f'Updated grade for student {student_to_update.name} to {grade} in assignment {assignment.name}')
+        self.canvas.graphql("""mutation ($assignmentId: ID!, $gradedOnly: Boolean) {
+                              postAssignmentGrades(input: {assignmentId: $assignmentId, gradedOnly: $gradedOnly}) {
+                                progress {
+                                  _id
+                                  state
+                                  __typename
+                                }
+                                __typename
+                              }
+                            }
+                            """, {"assignmentId": assignment.id, "gradedOnly": True})
+        print("Posted grades to students")
 
     def update_multiple_grades(self, student_identifier, push_timestamp, assignments_with_grade):
         # Get all students
