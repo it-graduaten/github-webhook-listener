@@ -91,6 +91,16 @@ def process_record(record):
                 canvas_api_manager.update_grade(student_identifier, canvas_assignment, grade, path_to_report)
             elif payload['application_type'] == APPLICATION_CONSOLE_WITH_MODELS:
                 # Do something with console app with models
+                grade, path_to_report = grade_console_app_with_models(
+                    assignment=assignment,
+                    assignment_folder=assignment_folder,
+                    assignment_name=assignment_name,
+                    chapter=chapter,
+                    payload=payload,
+                    push_timestamp=push_timestamp
+                )
+                # Update the grade on Canvas
+                canvas_api_manager.update_grade(student_identifier, canvas_assignment, grade, path_to_report)
                 pass
             else:
                 # Unknown application type
@@ -169,6 +179,49 @@ def grade_console_app(assignment, assignment_folder, assignment_name, chapter, p
     except Exception as e:
         print(f"Error while processing {assignment_name}: {e}")
 
+
+def grade_console_app_with_models(assignment, assignment_folder, assignment_name, chapter, payload, push_timestamp):
+    try:
+        # Download the solution folder
+        download_folder_from_repo(GITHUB_ACCESS_TOKEN, repo_full_name=payload['solution_repo_full_name'],
+                                  branch="main",
+                                  folder_to_download=f"{chapter}/{assignment}",
+                                  destination_folder=f"{assignment_folder}/solution")
+        # Download the students submission
+        download_folder_from_repo(GITHUB_ACCESS_TOKEN, repo_full_name=payload['student_repo_full_name'],
+                                  branch="main",
+                                  folder_to_download=f"{chapter}/{assignment}",
+                                  destination_folder=f"{assignment_folder}/student")
+        # Remove the 'Program.cs' file from the solution
+        os.remove(os.path.join(assignment_folder, "solution",
+                               chapter, assignment, "consoleapp", "Program.cs"))
+        # Copy the Program.cs file from the student to the solution
+        shutil.copy(os.path.join(assignment_folder, "student", chapter, assignment, "consoleapp", "Program.cs"),
+                    os.path.join(assignment_folder, "solution", chapter, assignment, "consoleapp",
+                                 "Program.cs"))
+        # Remove the Models folder from the solution, even if it is not empty
+        shutil.rmtree(os.path.join(assignment_folder, "solution",
+                                      chapter, assignment, "consoleapp", "Models"))
+        # Copy the Models folder from the student to the solution
+        shutil.copytree(os.path.join(assignment_folder, "student", chapter, assignment, "consoleapp", "Models"),
+                    os.path.join(assignment_folder, "solution", chapter, assignment, "consoleapp",
+                                 "Models"))
+        # Run the tests
+        test_command = f"dotnet test {assignment_folder}/solution/{chapter}/{assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\""
+        run_command(test_command)
+        path_to_result_xml = f"{assignment_folder}/solution/{chapter}/{assignment}/test/TestResults/result.xml"
+
+        # Get a grade
+        grade = get_test_results_grade(path_to_result_xml)
+        # Create a report
+        data = {'assignment': assignment_name, 'grade': grade}
+        path_to_report = generate_html_report(
+            template_path=os.path.join(TMP_FOLDER, "report-templates", "console_app.html"),
+            output_path=f"{assignment_folder}/grader-report-{push_timestamp}.html",
+            data=data)
+        return grade, path_to_report
+    except Exception as e:
+        print(f"Error while processing {assignment_name}: {e}")
 
 def download_classroom_rosters():
     download_folder_from_repo(
