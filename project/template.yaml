@@ -28,6 +28,7 @@ Resources:
       Events:
         GithubWebhook:
           Type: Api
+          Properties:
             Path: /grade/{id}
             Method: post
       Environment:
