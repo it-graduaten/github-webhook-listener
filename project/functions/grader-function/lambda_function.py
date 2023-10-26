@@ -1,4 +1,4 @@
-from src.xmlresult_helper import get_test_results_grade, generate_html_report
+from src.xmlresult_helper import generate_html_report, get_mustache_data
 from src.github_helper import download_folder_from_repo, get_student_identifier_from_classroom
 from src.canvas_manager import CanvasAPIManager
 import sys
@@ -166,16 +166,13 @@ def grade_console_app(assignment, assignment_folder, assignment_name, chapter, p
         test_command = f"dotnet test {assignment_folder}/solution/{chapter}/{assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\""
         run_command(test_command)
         path_to_result_xml = f"{assignment_folder}/solution/{chapter}/{assignment}/test/TestResults/result.xml"
-
-        # Get a grade
-        grade = get_test_results_grade(path_to_result_xml)
         # Create a report
-        data = {'assignment': assignment_name, 'grade': grade}
+        data = get_mustache_data(path_to_result_xml)
         path_to_report = generate_html_report(
             template_path=os.path.join(TMP_FOLDER, "report-templates", "console_app.html"),
             output_path=f"{assignment_folder}/grader-report-{push_timestamp}.html",
             data=data)
-        return grade, path_to_report
+        return data.grade, path_to_report
     except Exception as e:
         print(f"Error while processing {assignment_name}: {e}")
 
@@ -210,16 +207,14 @@ def grade_console_app_with_models(assignment, assignment_folder, assignment_name
         test_command = f"dotnet test {assignment_folder}/solution/{chapter}/{assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\""
         run_command(test_command)
         path_to_result_xml = f"{assignment_folder}/solution/{chapter}/{assignment}/test/TestResults/result.xml"
-
-        # Get a grade
-        grade = get_test_results_grade(path_to_result_xml)
         # Create a report
-        data = {'assignment': assignment_name, 'grade': grade}
+        data = get_mustache_data(path_to_result_xml)
+        print(data)
         path_to_report = generate_html_report(
-            template_path=os.path.join(TMP_FOLDER, "report-templates", "console_app.html"),
+            template_path=os.path.join(TMP_FOLDER, "report-templates", "console_app_with_models.html"),
             output_path=f"{assignment_folder}/grader-report-{push_timestamp}.html",
-            data=data)
-        return grade, path_to_report
+            data=data.to_dict())
+        return data.grade, path_to_report
     except Exception as e:
         print(f"Error while processing {assignment_name}: {e}")
 
