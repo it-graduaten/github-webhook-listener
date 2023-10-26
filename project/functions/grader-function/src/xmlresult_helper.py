@@ -72,17 +72,36 @@ class XmlResultData:
     failed_tests: int
     passed_tests: int
     categories: List[Category]
-    grade: int
+    grade: float
 
-    def __init__(self, title: str, total_runtime_in_ms: int, total_tests: int, failed_tests: int, passed_tests: int,
-                 categories: List[Category]) -> None:
+    def __init__(self, title: str) -> None:
         self.title = title
-        self.total_runtime_in_ms = total_runtime_in_ms
-        self.total_tests = total_tests
-        self.failed_tests = failed_tests
-        self.passed_tests = passed_tests
-        self.categories = categories
-        self.grade = round(10 - (failed_tests * (10 / total_tests)), 1)
+        self.total_runtime_in_ms = 0
+        self.total_tests = 0
+        self.failed_tests = 0
+        self.passed_tests = 0
+        self.categories = []
+        self.grade = 0
+
+    def update_totals(self):
+        for cat in self.categories:
+            for cl in cat.classes:
+                cl.total_tests = len(cl.tests)
+                cl.failed_tests = len([test for test in cl.tests if test.outcome == "Failed"])
+                cl.passed_tests = len([test for test in cl.tests if test.outcome == "Passed"])
+                cl.total_runtime_in_ms = sum([test.duration for test in cl.tests])
+            cat.total_tests = sum([test_class.total_tests for test_class in cat.classes])
+            cat.failed_tests = sum([test_class.failed_tests for test_class in cat.classes])
+            cat.passed_tests = sum([test_class.passed_tests for test_class in cat.classes])
+        self.total_tests = sum([category.total_tests for category in self.categories])
+        self.failed_tests = sum([category.failed_tests for category in self.categories])
+        self.passed_tests = sum([category.passed_tests for category in self.categories])
+
+    def update_grade(self):
+        if self.total_tests == 0:
+            self.grade = 0
+        else:
+            self.grade = round(10 - (self.failed_tests * (10 / self.total_tests)), 1)
 
     def to_json(self):
         data = {
@@ -317,14 +336,7 @@ def get_mustache_data(path_to_xml):
     root = tree.getroot()
     run = get_test_run_obj(root)
     # Create a data object
-    data = XmlResultData(
-        title="Test Results",
-        total_runtime_in_ms=0,
-        total_tests=5,
-        failed_tests=4,
-        passed_tests=1,
-        categories=[]
-    )
+    data = XmlResultData(title="Test Results") # Todo: Get the assignment name from somewhere
     # Create the classes
     classes = []
     for result in run.results:
@@ -391,19 +403,8 @@ def get_mustache_data(path_to_xml):
                 duration=0  # Todo: Fix duration
             ))
 
-    # Calculate all totals
-    for cat in data.categories:
-        for cl in cat.classes:
-            cl.total_tests = len(cl.tests)
-            cl.failed_tests = len([test for test in cl.tests if test.outcome == "Failed"])
-            cl.passed_tests = len([test for test in cl.tests if test.outcome == "Passed"])
-            cl.total_runtime_in_ms = sum([test.duration for test in cl.tests])
-        cat.total_tests = sum([test_class.total_tests for test_class in cat.classes])
-        cat.failed_tests = sum([test_class.failed_tests for test_class in cat.classes])
-        cat.passed_tests = sum([test_class.passed_tests for test_class in cat.classes])
-    data.total_tests = sum([category.total_tests for category in data.categories])
-    data.failed_tests = sum([category.failed_tests for category in data.categories])
-    data.passed_tests = sum([category.passed_tests for category in data.categories])
+    data.update_totals()
+    data.update_grade()
 
     return data
 
