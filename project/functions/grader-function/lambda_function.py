@@ -167,7 +167,7 @@ def grade_console_app(assignment, assignment_folder, assignment_name, chapter, p
         run_command(test_command)
         path_to_result_xml = f"{assignment_folder}/solution/{chapter}/{assignment}/test/TestResults/result.xml"
         # Create a report
-        data = get_mustache_data(path_to_result_xml)
+        data = get_mustache_data(path_to_result_xml, assignment_name)
         path_to_report = generate_html_report(
             template_path=os.path.join(TMP_FOLDER, "report-templates", "console_app.html"),
             output_path=f"{assignment_folder}/grader-report-{push_timestamp}.html",
@@ -208,7 +208,7 @@ def grade_console_app_with_models(assignment, assignment_folder, assignment_name
         run_command(test_command)
         path_to_result_xml = f"{assignment_folder}/solution/{chapter}/{assignment}/test/TestResults/result.xml"
         # Create a report
-        data = get_mustache_data(path_to_result_xml)
+        data = get_mustache_data(path_to_result_xml, assignment_name)
         print(data)
         path_to_report = generate_html_report(
             template_path=os.path.join(TMP_FOLDER, "report-templates", "console_app_with_models.html"),

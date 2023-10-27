@@ -343,13 +343,13 @@ def get_test_run_obj(xml_root):
     return testrun
 
 
-def get_mustache_data(path_to_xml):
+def get_mustache_data(path_to_xml, assignment_name):
     # Parse the xml
     tree = ET.parse(path_to_xml)
     root = tree.getroot()
     run = get_test_run_obj(root)
     # Create a data object
-    data = XmlResultData(title="Test Results")  # Todo: Get the assignment name from somewhere
+    data = XmlResultData(title=assignment_name)
     # Create the classes
     classes = []
     for result in run.results:
