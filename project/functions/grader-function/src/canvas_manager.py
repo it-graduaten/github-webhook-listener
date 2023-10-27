@@ -106,7 +106,6 @@ class CanvasAPIManager:
 
             # Update the grade
             submission = assignment.get_submission(student_to_update.id)
-            # TODO: Attach an html file with the results of the tests
             submission.edit(
                 submission={'posted_grade': grade},
                 comment={
