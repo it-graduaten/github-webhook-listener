@@ -2,6 +2,7 @@ import xml.etree.ElementTree as ET
 import chevron
 from typing import Optional, List
 import json
+from datetime import datetime
 
 XML_NAMESPACE = "{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}"
 
@@ -20,12 +21,14 @@ class Test:
     outcome: str
     duration: int
     output: Optional[Output]
+    has_error: bool
 
     def __init__(self, name: str, outcome: str, duration: int, output: Optional[Output]) -> None:
         self.name = name
         self.outcome = outcome
         self.duration = duration
         self.output = output
+        self.has_error = outcome == "Failed"
 
 
 class TestClass:
@@ -84,15 +87,18 @@ class XmlResultData:
         self.grade = 0
 
     def update_totals(self):
+        total_runtime_in_ms = 0
         for cat in self.categories:
             for cl in cat.classes:
                 cl.total_tests = len(cl.tests)
                 cl.failed_tests = len([test for test in cl.tests if test.outcome == "Failed"])
                 cl.passed_tests = len([test for test in cl.tests if test.outcome == "Passed"])
                 cl.total_runtime_in_ms = sum([test.duration for test in cl.tests])
+                total_runtime_in_ms += cl.total_runtime_in_ms
             cat.total_tests = sum([test_class.total_tests for test_class in cat.classes])
             cat.failed_tests = sum([test_class.failed_tests for test_class in cat.classes])
             cat.passed_tests = sum([test_class.passed_tests for test_class in cat.classes])
+        self.total_runtime_in_ms = total_runtime_in_ms
         self.total_tests = sum([category.total_tests for category in self.categories])
         self.failed_tests = sum([category.failed_tests for category in self.categories])
         self.passed_tests = sum([category.passed_tests for category in self.categories])
@@ -136,7 +142,8 @@ class XmlResultData:
                         "output": {
                             "message": test.output.message if test.output else None,
                             "stacktrace": test.output.stacktrace if test.output else None
-                        }
+                        },
+                        "has_error": test.has_error,
                     }
                     class_data["tests"].append(test_data)
                 category_data["classes"].append(class_data)
@@ -180,6 +187,7 @@ class XmlResultData:
                             "message": test.output.message if test.output else None,
                             "stacktrace": test.output.stacktrace if test.output else None
                         },
+                        "has_error": test.has_error,
                     }
                     class_data["tests"].append(test_data)
                 category_data["classes"].append(class_data)
@@ -193,12 +201,14 @@ class TestResult:
     name: str
     duration: int
     outcome: str
+    output: Output
 
-    def __init__(self, test_result_id: str, name: str, duration: int, outcome: str) -> None:
+    def __init__(self, test_result_id: str, name: str, duration: int, outcome: str, output: Output) -> None:
         self.test_result_id = test_result_id
         self.name = name
         self.duration = duration
         self.outcome = outcome
+        self.output = output
 
 
 class TestCategoryItem:
@@ -242,29 +252,18 @@ class Testrun:
         self.test_definitions = test_definitions
 
 
-def get_test_results_grade(path_to_xml):
-    namespace = "{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}"
-
-    tree = ET.parse(path_to_xml)
-    root = tree.getroot()
-
-    # TODO: Generate a report the user can see
-    # for el in root.iter(f'{namespace}UnitTestResult'):
-    # print(el.tag)
-
-    # Get the result summary
-    result_summary = root.find(f'{namespace}ResultSummary')
-    outcome = result_summary.attrib['outcome']
-    # Get the counters
-    counters = result_summary.find(f'{namespace}Counters')
-    total = int(counters.attrib['total'])
-    passed = int(counters.attrib['passed'])
-    failed = int(counters.attrib['failed'])
-
-    # Calculate the grade
-    grade_per_test = 10 / total
-    grade = round(10 - (failed * grade_per_test), 1)
-    return grade
+def transform_duration_string_to_ms(duration_str):
+    # If the length of the duration string is 0, return 0
+    if duration_str is None or len(duration_str) == 0:
+        return 0
+    # Remove the last character from the duration string
+    duration_str = duration_str[:-1]
+    # Parse the duration string into a timedelta object
+    duration = datetime.strptime(duration_str, "%H:%M:%S.%f").time()
+    # Calculate the total milliseconds
+    milliseconds = (duration.microsecond / 1000) + (duration.second * 1000) + \
+                   (duration.minute * 60 * 1000) + (duration.hour * 60 * 60 * 1000)
+    return milliseconds
 
 
 def get_unit_test_results(xml_root):
@@ -274,12 +273,26 @@ def get_unit_test_results(xml_root):
     results = []
 
     for result in unit_test_results:
+        duration_str = result.attrib["duration"] if "duration" in result.attrib else None
+        duration = transform_duration_string_to_ms(duration_str)
+
+        output = result.find(XML_NAMESPACE + "Output")
+        if output is not None:
+            output_message = output.find(XML_NAMESPACE + "ErrorInfo/" + XML_NAMESPACE + "Message")
+            output_stacktrace = output.find(XML_NAMESPACE + "ErrorInfo/" + XML_NAMESPACE + "StackTrace")
+            output_obj = Output(
+                message=output_message.text if output_message is not None else None,
+                stacktrace=output_stacktrace.text if output_stacktrace is not None else None
+            )
+        else:
+            output_obj = None
+
         res = TestResult(
             test_result_id=result.attrib["testId"] if "testId" in result.attrib else None,
             name=result.attrib["testName"] if "testName" in result.attrib else None,
-            # TODO: Fix duration to be in milliseconds
-            duration=0,
-            outcome=result.attrib["outcome"] if "outcome" in result.attrib else None
+            duration=duration,
+            outcome=result.attrib["outcome"] if "outcome" in result.attrib else None,
+            output=output_obj
         )
         results.append(res)
 
@@ -336,7 +349,7 @@ def get_mustache_data(path_to_xml):
     root = tree.getroot()
     run = get_test_run_obj(root)
     # Create a data object
-    data = XmlResultData(title="Test Results") # Todo: Get the assignment name from somewhere
+    data = XmlResultData(title="Test Results")  # Todo: Get the assignment name from somewhere
     # Create the classes
     classes = []
     for result in run.results:
@@ -373,8 +386,8 @@ def get_mustache_data(path_to_xml):
                 new_class.tests.append(Test(
                     name=test_definition_name,
                     outcome=result.outcome,
-                    output=None,  # Todo: fix output
-                    duration=0  # Todo: Fix duration
+                    output=result.output,
+                    duration=result.duration
                 ))
                 # Add the class to the category
                 new_category.classes.append(new_class)
@@ -385,8 +398,8 @@ def get_mustache_data(path_to_xml):
                 new_class.tests.append(Test(
                     name=test_definition_name,
                     outcome=result.outcome,
-                    output=None,  # Todo: fix output
-                    duration=0  # Todo: Fix duration
+                    output=result.output,
+                    duration=result.duration
                 ))
             # Add the category to the data
             data.categories.append(new_category)
@@ -399,8 +412,8 @@ def get_mustache_data(path_to_xml):
             new_class.tests.append(Test(
                 name=test_definition_name,
                 outcome=result.outcome,
-                output=None,  # Todo: fix output
-                duration=0  # Todo: Fix duration
+                output=result.output,
+                duration=result.duration
             ))
 
     data.update_totals()
