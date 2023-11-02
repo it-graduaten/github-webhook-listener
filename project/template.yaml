@@ -64,3 +64,16 @@ Resources:
       QueueName: "grader-delivery-queue"
       VisibilityTimeout: 120
       
+  GraderLogBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: "grader-log-bucket"
+      AccessControl: PublicRead
+      LifecycleConfiguration:
+        Rules:
+          - Id: "DeleteLogs"
+            Status: Enabled
+            ExpirationInDays: 30
+            NoncurrentVersionExpirationInDays: 30
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
