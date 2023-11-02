@@ -1,5 +1,6 @@
 import xml.etree.ElementTree as ET
 import chevron
+import os
 from typing import Optional, List
 import json
 from datetime import datetime
@@ -76,8 +77,10 @@ class XmlResultData:
     passed_tests: int
     categories: List[Category]
     grade: float
+    log_filename: str
+    has_compile_error: bool
 
-    def __init__(self, title: str) -> None:
+    def __init__(self, title: str, log_filename="") -> None:
         self.title = title
         self.total_runtime_in_ms = 0
         self.total_tests = 0
@@ -85,6 +88,8 @@ class XmlResultData:
         self.passed_tests = 0
         self.categories = []
         self.grade = 0
+        self.log_filename = log_filename
+        self.has_compile_error = False
 
     def update_totals(self):
         total_runtime_in_ms = 0
@@ -117,7 +122,9 @@ class XmlResultData:
             "failed_tests": self.failed_tests,
             "passed_tests": self.passed_tests,
             "categories": [],
-            "grade": self.grade
+            "grade": self.grade,
+            "log_filename": self.log_filename,
+            "has_compile_error": self.has_compile_error
         }
 
         for category in self.categories:
@@ -159,7 +166,9 @@ class XmlResultData:
             "failed_tests": self.failed_tests,
             "passed_tests": self.passed_tests,
             "categories": [],
-            "grade": self.grade
+            "grade": self.grade,
+            "log_filename": self.log_filename,
+            "has_compile_error": self.has_compile_error
         }
 
         for category in self.categories:
@@ -343,13 +352,19 @@ def get_test_run_obj(xml_root):
     return testrun
 
 
-def get_mustache_data(path_to_xml, assignment_name):
+def get_mustache_data(path_to_xml, assignment_name, log_filename):
+    # Create a data object
+    data = XmlResultData(title=assignment_name, log_filename=log_filename)
+
+    # If the xml file does not exist, there has been a compile error
+    if not os.path.isfile(path_to_xml):
+        data.has_compile_error = True
+        return data
+
     # Parse the xml
     tree = ET.parse(path_to_xml)
     root = tree.getroot()
     run = get_test_run_obj(root)
-    # Create a data object
-    data = XmlResultData(title=assignment_name)
     # Create the classes
     classes = []
     for result in run.results:

@@ -23,6 +23,7 @@ boto3_session = Boto3SessionProvider(
 
 sqs = boto3_session.client('sqs')
 ssm = boto3_session.client('ssm')
+s3 = boto3_session.client('s3')
 
 secret_response = ssm.get_parameter(
     Name='/grader/secrets',
@@ -43,6 +44,7 @@ print(f"CANVAS_API_URL: {CANVAS_API_URL}")
 
 
 def process_record(record):
+    message_id = record["MessageId"]
     # Convert the record to a JSON object
     payload = json.loads(record["Body"])
     # Create canvas credentials
@@ -80,6 +82,7 @@ def process_record(record):
             # Check the application type
             if payload['application_type'] == APPLICATION_CONSOLE:
                 grade, path_to_report = grade_console_app(
+                    message_id=message_id,
                     assignment=assignment,
                     assignment_folder=assignment_folder,
                     assignment_name=assignment_name,
@@ -92,6 +95,7 @@ def process_record(record):
             elif payload['application_type'] == APPLICATION_CONSOLE_WITH_MODELS:
                 # Do something with console app with models
                 grade, path_to_report = grade_console_app_with_models(
+                    message_id=message_id,
                     assignment=assignment,
                     assignment_folder=assignment_folder,
                     assignment_name=assignment_name,
@@ -143,7 +147,7 @@ def get_unique_assignments_to_grade(payload):
     return assignments_to_grade
 
 
-def grade_console_app(assignment, assignment_folder, assignment_name, chapter, payload, push_timestamp):
+def grade_console_app(message_id, assignment, assignment_folder, assignment_name, chapter, payload, push_timestamp):
     try:
         # Download the solution folder
         download_folder_from_repo(GITHUB_ACCESS_TOKEN, repo_full_name=payload['solution_repo_full_name'],
@@ -164,7 +168,10 @@ def grade_console_app(assignment, assignment_folder, assignment_name, chapter, p
                                  "Program.cs"))
         # Run the tests
         test_command = f"dotnet test {assignment_folder}/solution/{chapter}/{assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\""
-        run_command(test_command)
+        rc, output = run_command(test_command)
+        # Write the log to s3
+        log_filename = f"{message_id}_{assignment_name}.log"
+        write_log_to_s3(output, log_filename)
         path_to_result_xml = f"{assignment_folder}/solution/{chapter}/{assignment}/test/TestResults/result.xml"
         # Create a report
         data = get_mustache_data(path_to_result_xml, assignment_name)
@@ -177,7 +184,8 @@ def grade_console_app(assignment, assignment_folder, assignment_name, chapter, p
         print(f"Error while processing {assignment_name}: {e}")
 
 
-def grade_console_app_with_models(assignment, assignment_folder, assignment_name, chapter, payload, push_timestamp):
+def grade_console_app_with_models(message_id, assignment, assignment_folder, assignment_name, chapter, payload,
+                                  push_timestamp):
     try:
         # Download the solution folder
         download_folder_from_repo(GITHUB_ACCESS_TOKEN, repo_full_name=payload['solution_repo_full_name'],
@@ -198,18 +206,21 @@ def grade_console_app_with_models(assignment, assignment_folder, assignment_name
                                  "Program.cs"))
         # Remove the Models folder from the solution, even if it is not empty
         shutil.rmtree(os.path.join(assignment_folder, "solution",
-                                      chapter, assignment, "consoleapp", "Models"))
+                                   chapter, assignment, "consoleapp", "Models"))
         # Copy the Models folder from the student to the solution
         shutil.copytree(os.path.join(assignment_folder, "student", chapter, assignment, "consoleapp", "Models"),
-                    os.path.join(assignment_folder, "solution", chapter, assignment, "consoleapp",
-                                 "Models"))
+                        os.path.join(assignment_folder, "solution", chapter, assignment, "consoleapp",
+                                     "Models"))
         # Run the tests
         test_command = f"dotnet test {assignment_folder}/solution/{chapter}/{assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\""
-        run_command(test_command)
+        rc, output = run_command(test_command)
+        # Write the log to s3
+        log_filename = f"{message_id}_{assignment_name}.log"
+        write_log_to_s3(output, log_filename)
         path_to_result_xml = f"{assignment_folder}/solution/{chapter}/{assignment}/test/TestResults/result.xml"
         # Create a report
-        data = get_mustache_data(path_to_result_xml, assignment_name)
-        print(data)
+        data = get_mustache_data(path_to_result_xml, assignment_name, log_filename)
+        print(data.to_json())
         path_to_report = generate_html_report(
             template_path=os.path.join(TMP_FOLDER, "report-templates", "console_app_with_models.html"),
             output_path=f"{assignment_folder}/grader-report-{push_timestamp}.html",
@@ -217,6 +228,7 @@ def grade_console_app_with_models(assignment, assignment_folder, assignment_name
         return data.grade, path_to_report
     except Exception as e:
         print(f"Error while processing {assignment_name}: {e}")
+
 
 def download_classroom_rosters():
     download_folder_from_repo(
@@ -236,14 +248,21 @@ def download_report_templates():
     )
 
 
+def write_log_to_s3(log, log_filename):
+    new_file = s3.put_object(Body=log, Bucket='tm-autograder-log-bucket', Key=log_filename)
+    print("File created", new_file)
+
+
 def run_command(command):
     process = subprocess.Popen(command.split(" "), stdout=subprocess.PIPE)
+    full_output = ""
     while True:
         try:
             output = process.stdout.readline().decode('utf-8')
             if not output:
                 break
             print(f"[CMD] {output.strip()}")
+            full_output += output
         except Exception as e:
             print(f"Error: {e}")
             break
@@ -251,7 +270,7 @@ def run_command(command):
         time.sleep(0.1)
 
     rc = process.poll()
-    return rc
+    return rc, full_output
 
 
 if __name__ == "__main__":

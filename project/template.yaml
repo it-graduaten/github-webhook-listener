@@ -67,7 +67,7 @@ Resources:
   GraderLogBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: "grader-log-bucket"
+      BucketName: "tm-autograder-log-bucket"
       AccessControl: PublicRead
       LifecycleConfiguration:
         Rules:
