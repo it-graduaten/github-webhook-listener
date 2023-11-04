@@ -16,10 +16,11 @@ Globals:
     MemorySize: 128
 
 Resources:
+    # Lambda function to trigger grader from a GitHub webhook
   GraderTriggerLambdaFunction:
     Type: AWS::Serverless::Function 
     Properties:
-      CodeUri: functions/grader-trigger-function/
+      CodeUri: functions/grader-trigger-function-from-webhook/
       Handler: app.lambda_handler
       Runtime: python3.11
       Role: !GetAtt GraderRole.Arn
@@ -29,7 +30,27 @@ Resources:
         GithubWebhook:
           Type: Api
           Properties:
-            Path: /grade/{id}
+            Path: /trigger-grader/{id}
+            Method: post
+      Environment:
+        Variables:
+          GRADER_DELIVERY_QUEUE_URL: !Ref GraderQueue
+
+  # Lambda function to trigger grader from a GitHub action
+  GraderTriggerFromActionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/grader-trigger-function-from-action/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Role: !GetAtt GraderRole.Arn
+      Architectures:
+          - x86_64
+      Events:
+        Action:
+          Type: Api
+          Properties:
+            Path: /trigger-grader/{id}
             Method: post
       Environment:
         Variables:
@@ -63,7 +84,8 @@ Resources:
     Properties: 
       QueueName: "grader-delivery-queue"
       VisibilityTimeout: 120
-      
+
+  # S3 bucket to store the autograder logs
   GraderLogBucket:
     Type: AWS::S3::Bucket
     Properties:
