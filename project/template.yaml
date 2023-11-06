@@ -17,7 +17,7 @@ Globals:
 
 Resources:
     # Lambda function to trigger grader from a GitHub webhook
-  GraderTriggerLambdaFunction:
+  GraderTriggerFromWebhookFunction:
     Type: AWS::Serverless::Function 
     Properties:
       CodeUri: functions/grader-trigger-function-from-webhook/
