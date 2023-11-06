@@ -16,14 +16,20 @@ Globals:
     MemorySize: 128
 
 Resources:
-    # Lambda function to trigger grader from a GitHub webhook
-  GraderTriggerFromWebhookFunction:
+  # IoT thing
+  TmAutograderThing:
+      Type: AWS::IoT::Thing
+      Properties:
+        ThingName: "tm-autograder"
+
+  # Lambda function to trigger grader from a GitHub webhook
+  TmAutograderTriggerFromWebhookFunction:
     Type: AWS::Serverless::Function 
     Properties:
       CodeUri: functions/grader-trigger-function-from-webhook/
       Handler: app.lambda_handler
       Runtime: python3.11
-      Role: !GetAtt GraderRole.Arn
+      Role: !GetAtt TmAutograderRole.Arn
       Architectures:
         - x86_64
       Events:
@@ -34,16 +40,16 @@ Resources:
             Method: post
       Environment:
         Variables:
-          GRADER_DELIVERY_QUEUE_URL: !Ref GraderQueue
+          GRADER_DELIVERY_QUEUE_URL: !Ref TmAutograderQueue
 
   # Lambda function to trigger grader from a GitHub action
-  GraderTriggerFromActionFunction:
+  TmAutograderTriggerFromActionFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: functions/grader-trigger-function-from-action/
       Handler: app.lambda_handler
       Runtime: python3.11
-      Role: !GetAtt GraderRole.Arn
+      Role: !GetAtt TmAutograderRole.Arn
       Architectures:
           - x86_64
       Events:
@@ -54,11 +60,22 @@ Resources:
             Method: post
       Environment:
         Variables:
-          GRADER_DELIVERY_QUEUE_URL: !Ref GraderQueue
+          GRADER_DELIVERY_QUEUE_URL: !Ref TmAutograderQueue
 
-  GraderRole:
+  # Iam policy for write-only access to the S3 log bucket
+  TmAutograderLogBucketPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: "tm-autograder-log-bucket-policy"
+      PolicyDocument: {} # Todo: Complete policy
+      Roles:
+          - !Ref TmAutograderRole
+
+  # Iam role for the grader lambda function
+  TmAutograderRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: "tm-autograder-role"
       AssumeRolePolicyDocument: 
         Version: "2012-10-17"
         Statement:
@@ -77,12 +94,13 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: 'sqs:SendMessage'
-                Resource: !GetAtt GraderQueue.Arn
+                Resource: !GetAtt TmAutograderQueue.Arn
 
-  GraderQueue:
+  # Sqs queue to deliver the grader requests
+  TmAutograderQueue:
     Type: AWS::SQS::Queue
     Properties: 
-      QueueName: "grader-delivery-queue"
+      QueueName: "tm-autograder-delivery-queue"
       VisibilityTimeout: 120
 
   # S3 bucket to store the autograder logs
