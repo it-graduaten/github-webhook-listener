@@ -5,6 +5,5 @@ resolve_s3 = true
 s3_prefix = "grader-cloud"
 region = "eu-central-1"
 confirm_changeset = true
-capabilities = "CAPABILITY_IAM"
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
 parameter_overrides = "DevState=\"local\""
-image_repositories = ["GraderImageFunction=947732858245.dkr.ecr.eu-central-1.amazonaws.com/gradercloud977ad123/graderimagefunction061eaa71repo"]

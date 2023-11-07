@@ -36,7 +36,7 @@ Resources:
         GithubWebhook:
           Type: Api
           Properties:
-            Path: /trigger-grader/{id}
+            Path: /trigger-grader-from-webhook/{id}
             Method: post
       Environment:
         Variables:
@@ -56,20 +56,11 @@ Resources:
         Action:
           Type: Api
           Properties:
-            Path: /trigger-grader/{id}
+            Path: /trigger-grader-from-action/{id}
             Method: post
       Environment:
         Variables:
           GRADER_DELIVERY_QUEUE_URL: !Ref TmAutograderQueue
-
-  # Iam policy for write-only access to the S3 log bucket
-  TmAutograderLogBucketPolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: "tm-autograder-log-bucket-policy"
-      PolicyDocument: {} # Todo: Complete policy
-      Roles:
-          - !Ref TmAutograderRole
 
   # Iam role for the grader lambda function
   TmAutograderRole:
@@ -95,6 +86,39 @@ Resources:
               - Effect: Allow
                 Action: 'sqs:SendMessage'
                 Resource: !GetAtt TmAutograderQueue.Arn
+        - PolicyName: "TmAutograderReadSSM"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: 'ssm:GetParameter'
+                Resource: "*"
+
+  # Role for accessing the S3 bucket
+  TmAutograderLogBucketWriteOnlyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: "TmAutograderLogBucketWriteOnlyRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                  - credentials.iot.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole
+      Policies:
+        - PolicyName: "TmAutograderBucketWriteOnly"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: 's3:PutObject'
+                Resource: !GetAtt TmAutograderLogBucket.Arn
 
   # Sqs queue to deliver the grader requests
   TmAutograderQueue:
@@ -104,11 +128,10 @@ Resources:
       VisibilityTimeout: 120
 
   # S3 bucket to store the autograder logs
-  GraderLogBucket:
+  TmAutograderLogBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: "tm-autograder-log-bucket"
-      AccessControl: PublicRead
       LifecycleConfiguration:
         Rules:
           - Id: "DeleteLogs"
