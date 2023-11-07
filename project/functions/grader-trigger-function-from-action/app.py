@@ -12,7 +12,7 @@ QUEUE_URL = os.environ.get("GRADER_DELIVERY_QUEUE_URL")
 
 def lambda_handler(event, context):
     try:
-        config = validate_request(event)
+        classroom_assignment_id, config = validate_request(event)
     except Exception as e:
         print(f"Error: {e}")
         return {
@@ -31,8 +31,10 @@ def lambda_handler(event, context):
         "application_type": config['application_type'],
         "student_repo_full_name": event_body['repository'],
         "student_github_id": event_body['sender_id'],
+        "student_github_username": event_body['sender_github_username'],
         "push_timestamp": event_body['push_timestamp'],
-        "changed_files": event_body['changed_files']
+        "changed_files": event_body['changed_files'],
+        "classroom_assignment_id": classroom_assignment_id
     }
 
     # Trigger message on GradingQueue with GradingRequest
@@ -65,7 +67,7 @@ def validate_request(request):
     if classroom_assignment_id not in CONFIG_DICT:
         CONFIG_DICT[classroom_assignment_id] = get_config(classroom_assignment_id)
     # Return the config
-    return CONFIG_DICT[classroom_assignment_id]
+    return classroom_assignment_id, CONFIG_DICT[classroom_assignment_id]
 
 
 def create_grading_request(request_body):

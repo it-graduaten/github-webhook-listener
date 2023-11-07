@@ -9,3 +9,4 @@ GitPython==3.1.31
 pandas
 awsiot-credentialhelper
 chevron
+requests

@@ -1,5 +1,6 @@
 from src.xmlresult_helper import generate_html_report, get_mustache_data
-from src.github_helper import download_folder_from_repo, get_student_identifier_from_classroom
+from src.github_helper import download_folder_from_repo, get_student_identifier_from_classroom, \
+    get_student_identifier_from_classroom_assignment
 from src.canvas_manager import CanvasAPIManager
 import sys
 
@@ -51,15 +52,18 @@ def process_record(record):
     canvas_credentials = {'api_key': CANVAS_API_KEY, 'api_url': CANVAS_API_URL}
     # Create a canvas api manager
     canvas_api_manager = CanvasAPIManager(canvas_credentials, payload['canvas_course_id'])
-    # Download the classroom rosters from the config repo
-    download_classroom_rosters()
     # Download the report templates from the config repo
     download_report_templates()
     # Get the student identifier
-    student_identifier = get_student_identifier_from_classroom(
-        os.path.join(TMP_FOLDER, "github-classroom-rosters", f"{payload['github_classroom_id']}.csv"),
-        payload['student_github_id']
+    student_identifier = get_student_identifier_from_classroom_assignment(
+        token=GITHUB_ACCESS_TOKEN,
+        github_username=payload['student_github_username'],
+        classroom_assignment_id=payload['classroom_assignment_id']
     )
+    # If student identifier is None, the student is not in the classroom and nothing should happen
+    if student_identifier is None or student_identifier == '':
+        print(f"Student {payload['student_github_username']} is not in the classroom. Nothing to do")
+        return
     # Get the push timestamp
     push_timestamp = payload['push_timestamp']
     # Get all unique assignments to grade

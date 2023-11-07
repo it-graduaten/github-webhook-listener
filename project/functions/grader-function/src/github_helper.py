@@ -4,6 +4,7 @@ import shutil
 import pandas as pd
 from github import Github
 from github import GithubException
+import requests
 
 
 def get_sha_for_tag(repository, tag):
@@ -92,4 +93,34 @@ def get_student_identifier_from_classroom(path_to_csv, student_github_id):
     end_index = roster_identifier[0].find(")")
     student_identifier = roster_identifier[0][start_index + 1:end_index]
     print(f"Student identifier found: {student_identifier}")
+    return student_identifier
+
+
+def get_student_identifier_from_classroom_assignment(token, github_username, classroom_assignment_id):
+    """
+    Get the student identifier from the classroom roster
+    @param token: The GitHub token
+    @param github_username: The students GitHub username
+    @param classroom_assignment_id: The id of the classroom assignment
+    @return: A student identifier (example: r0123456)
+    """
+    # Get the classroom assignment grades
+    endpoint = f"https://api.github.com/assignments/{classroom_assignment_id}/grades"
+    headers = {'Authorization': f'Bearer {token}'}
+    response = requests.get(endpoint, headers=headers)
+    # If the response is not ok, return None
+    if not response.ok:
+        print(f"Error getting classroom assignment grades: {response.status_code}")
+        return None
+    # Get the student identifier
+    student_identifier = None
+    for grade in response.json():
+        if grade['github_username'] == github_username:
+            roster_identifier = grade['roster_identifier']
+            start_index = roster_identifier.find("(")
+            end_index = roster_identifier.find(")")
+            student_identifier = roster_identifier[start_index + 1:end_index]
+            break
+    # If no student identifier is found, return None
+    print(f"Student identifier found: {student_identifier}. Github username: {github_username}.")
     return student_identifier
