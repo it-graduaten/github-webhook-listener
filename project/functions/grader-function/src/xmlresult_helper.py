@@ -8,6 +8,7 @@ from datetime import datetime
 XML_NAMESPACE = "{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}"
 
 
+# Custom xml result models to create a json or dict from the dotnet result xml
 class Output:
     message: str
     stacktrace: str
@@ -26,7 +27,7 @@ class Test:
 
     def __init__(self, name: str, outcome: str, duration: int, output: Optional[Output]) -> None:
         self.name = name
-        self.outcome = outcome
+        self.outcome = 'failed' if outcome == 'Failed' else 'success'
         self.duration = duration
         self.output = output
         self.has_error = outcome == "Failed"
@@ -96,8 +97,9 @@ class XmlResultData:
         for cat in self.categories:
             for cl in cat.classes:
                 cl.total_tests = len(cl.tests)
-                cl.failed_tests = len([test for test in cl.tests if test.outcome == "Failed"])
-                cl.passed_tests = len([test for test in cl.tests if test.outcome == "Passed"])
+                cl.failed_tests = len([test for test in cl.tests if test.outcome.lower() == "failed"])
+                cl.passed_tests = len([test for test in cl.tests if
+                                       test.outcome.lower() == "Passed" or test.outcome.lower() == "success"])
                 cl.total_runtime_in_ms = sum([test.duration for test in cl.tests])
                 total_runtime_in_ms += cl.total_runtime_in_ms
             cat.total_tests = sum([test_class.total_tests for test_class in cat.classes])
@@ -115,48 +117,7 @@ class XmlResultData:
             self.grade = round(10 - (self.failed_tests * (10 / self.total_tests)), 1)
 
     def to_json(self):
-        data = {
-            "title": self.title,
-            "total_runtime_in_ms": self.total_runtime_in_ms,
-            "total_tests": self.total_tests,
-            "failed_tests": self.failed_tests,
-            "passed_tests": self.passed_tests,
-            "categories": [],
-            "grade": self.grade,
-            "log_filename": self.log_filename,
-            "has_compile_error": self.has_compile_error
-        }
-
-        for category in self.categories:
-            category_data = {
-                "name": category.name,
-                "classes": []
-            }
-            for test_class in category.classes:
-                class_data = {
-                    "name": test_class.name,
-                    "total_runtime_in_ms": test_class.total_runtime_in_ms,
-                    "total_tests": test_class.total_tests,
-                    "passed_tests": test_class.passed_tests,
-                    "failed_tests": test_class.failed_tests,
-                    "tests": []
-                }
-                for test in test_class.tests:
-                    test_data = {
-                        "name": test.name,
-                        "outcome": test.outcome,
-                        "duration": test.duration,
-                        "output": {
-                            "message": test.output.message if test.output else None,
-                            "stacktrace": test.output.stacktrace if test.output else None
-                        },
-                        "has_error": test.has_error,
-                    }
-                    class_data["tests"].append(test_data)
-                category_data["classes"].append(class_data)
-            data["categories"].append(category_data)
-
-        return json.dumps(data, indent=4)
+        return json.dumps(self.to_dict(), indent=4)
 
     def to_dict(self):
         data = {
@@ -175,7 +136,10 @@ class XmlResultData:
             category_data = {
                 "name": category.name,
                 "classes": [],
-                "id": category.category_id
+                "id": category.category_id,
+                "total_tests": category.total_tests,
+                "failed_tests": category.failed_tests,
+                "passed_tests": category.passed_tests
             }
             for test_class in category.classes:
                 class_data = {
@@ -205,6 +169,10 @@ class XmlResultData:
         return data
 
 
+# End of custom xml result models
+
+
+# Models to map to a result xml from dotnet test
 class TestResult:
     test_result_id: str
     name: str
@@ -260,6 +228,8 @@ class Testrun:
         self.results = results
         self.test_definitions = test_definitions
 
+
+# End of models
 
 def transform_duration_string_to_ms(duration_str):
     # If the length of the duration string is 0, return 0
