@@ -3,10 +3,13 @@ from src.github_helper import download_folder_from_repo, get_student_identifier_
     get_student_identifier_from_classroom_assignment
 from src.canvas_manager import CanvasAPIManager
 import sys
+import git
 
 import os
+from os import path
 import json
 import shutil
+import stat
 
 import subprocess
 import time
@@ -53,7 +56,7 @@ def process_record(record):
     # Create a canvas api manager
     canvas_api_manager = CanvasAPIManager(canvas_credentials, payload['canvas_course_id'])
     # Download the report templates from the config repo
-    download_report_templates()
+    download_autograder_config()
     # Get the student identifier
     student_identifier = get_student_identifier_from_classroom_assignment(
         token=GITHUB_ACCESS_TOKEN,
@@ -180,7 +183,7 @@ def grade_console_app(message_id, assignment, assignment_folder, assignment_name
         # Create a report
         data = get_mustache_data(path_to_result_xml, assignment_name)
         path_to_report = generate_html_report(
-            template_path=os.path.join(TMP_FOLDER, "report-templates", "console_app.html"),
+            template_path=os.path.join(TMP_FOLDER, "tm-autograder-config", "report-templates", "console_app.html"),
             output_path=f"{assignment_folder}/grader-report-{push_timestamp}.html",
             data=data)
         return data.grade, path_to_report
@@ -191,16 +194,16 @@ def grade_console_app(message_id, assignment, assignment_folder, assignment_name
 def grade_console_app_with_models(message_id, assignment, assignment_folder, assignment_name, chapter, payload,
                                   push_timestamp):
     try:
-        # Download the solution folder
-        download_folder_from_repo(GITHUB_ACCESS_TOKEN, repo_full_name=payload['solution_repo_full_name'],
-                                  branch="main",
-                                  folder_to_download=f"{chapter}/{assignment}",
-                                  destination_folder=f"{assignment_folder}/solution")
-        # Download the students submission
-        download_folder_from_repo(GITHUB_ACCESS_TOKEN, repo_full_name=payload['student_repo_full_name'],
-                                  branch="main",
-                                  folder_to_download=f"{chapter}/{assignment}",
-                                  destination_folder=f"{assignment_folder}/student")
+        # Clone the solution folder
+        clone_git_repo(
+            repo_full_name=payload['solution_repo_full_name'],
+            destination_folder=f"{assignment_folder}/solution"
+        )
+        # Clone the students submission
+        clone_git_repo(
+            repo_full_name=payload['student_repo_full_name'],
+            destination_folder=f"{assignment_folder}/student"
+        )
         # Remove the 'Program.cs' file from the solution
         os.remove(os.path.join(assignment_folder, "solution",
                                chapter, assignment, "consoleapp", "Program.cs"))
@@ -226,7 +229,8 @@ def grade_console_app_with_models(message_id, assignment, assignment_folder, ass
         data = get_mustache_data(path_to_result_xml, assignment_name, log_filename)
         print(data.to_json())
         path_to_report = generate_html_report(
-            template_path=os.path.join(TMP_FOLDER, "report-templates", "console_app_with_models.html"),
+            template_path=os.path.join(TMP_FOLDER, "tm-autograder-config", "report-templates",
+                                       "console_app_with_models.html"),
             output_path=f"{assignment_folder}/grader-report-{push_timestamp}.html",
             data=data.to_dict())
         return data.grade, path_to_report
@@ -234,27 +238,32 @@ def grade_console_app_with_models(message_id, assignment, assignment_folder, ass
         print(f"Error while processing {assignment_name}: {e}")
 
 
-def download_classroom_rosters():
-    download_folder_from_repo(
-        token=GITHUB_ACCESS_TOKEN,
-        repo_full_name="it-graduaten/tm-autograder-config",
-        branch="main",
-        folder_to_download="github-classroom-rosters"
-    )
-
-
-def download_report_templates():
-    download_folder_from_repo(
-        token=GITHUB_ACCESS_TOKEN,
-        repo_full_name="it-graduaten/tm-autograder-config",
-        branch="main",
-        folder_to_download="report-templates"
-    )
+def download_autograder_config():
+    clone_git_repo(repo_full_name="it-graduaten/tm-autograder-config",
+                   destination_folder=os.path.join(TMP_FOLDER, "tm-autograder-config"))
 
 
 def write_log_to_s3(log, log_filename):
     new_file = s3.put_object(Body=log, Bucket='tm-autograder-log-bucket', Key=log_filename)
     print("File created", new_file)
+
+
+def clone_git_repo(repo_full_name, destination_folder):
+    print("Cloning repo", repo_full_name)
+    # Remove the repo if it exists
+    if path.exists(destination_folder):
+        for root, dirs, files in os.walk(destination_folder):
+            for dir in dirs:
+                os.chmod(path.join(root, dir), stat.S_IRWXU)
+            for file in files:
+                os.chmod(path.join(root, file), stat.S_IRWXU)
+        shutil.rmtree(destination_folder)
+
+    # Clone the repo using GitPython
+    repo = git.Repo.clone_from(
+        f'https://JorenSynaeveTM:{GITHUB_ACCESS_TOKEN}@github.com/{repo_full_name}.git',
+        destination_folder)
+    print("Cloned repo to", destination_folder)
 
 
 def run_command(command):
