@@ -226,7 +226,7 @@ def grade_console_app_with_models(message_id, assignment, assignment_folder, ass
         write_log_to_s3(output, log_filename)
         path_to_result_xml = f"{assignment_folder}/solution/{chapter}/{assignment}/test/TestResults/result.xml"
         # Create a report
-        data = get_mustache_data(path_to_result_xml, assignment_name, log_filename)
+        data = get_mustache_data(path_to_result_xml, assignment_name, log_filename, output)
         print(data.to_json())
         path_to_report = generate_html_report(
             template_path=os.path.join(TMP_FOLDER, "tm-autograder-config", "report-templates",

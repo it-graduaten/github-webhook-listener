@@ -80,8 +80,9 @@ class XmlResultData:
     grade: float
     log_filename: str
     has_compile_error: bool
+    output_log: str
 
-    def __init__(self, title: str, log_filename="") -> None:
+    def __init__(self, title: str, log_filename, output_log) -> None:
         self.title = title
         self.total_runtime_in_ms = 0
         self.total_tests = 0
@@ -91,6 +92,7 @@ class XmlResultData:
         self.grade = 0
         self.log_filename = log_filename
         self.has_compile_error = False
+        self.output_log = output_log
 
     def update_totals(self):
         total_runtime_in_ms = 0
@@ -129,7 +131,8 @@ class XmlResultData:
             "categories": [],
             "grade": self.grade,
             "log_filename": self.log_filename,
-            "has_compile_error": self.has_compile_error
+            "has_compile_error": self.has_compile_error,
+            "output_log": self.output_log
         }
 
         for category in self.categories:
@@ -322,9 +325,9 @@ def get_test_run_obj(xml_root):
     return testrun
 
 
-def get_mustache_data(path_to_xml, assignment_name, log_filename):
+def get_mustache_data(path_to_xml, assignment_name, log_filename, output_log):
     # Create a data object
-    data = XmlResultData(title=assignment_name, log_filename=log_filename)
+    data = XmlResultData(title=assignment_name, log_filename=log_filename, output_log=output_log)
 
     # If the xml file does not exist, there has been a compile error
     if not os.path.isfile(path_to_xml):
