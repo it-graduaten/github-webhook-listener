@@ -1,9 +1,19 @@
 version = 0.1
-[default.deploy.parameters]
+
+[prod.deploy.parameters]
 stack_name = "grader-cloud"
 resolve_s3 = true
 s3_prefix = "grader-cloud"
 region = "eu-central-1"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
-parameter_overrides = "DevState=\"local\""
+parameter_overrides = "DevState=\"local\" Env=\"prod\""
+
+[dev.deploy.parameters]
+stack_name = "dev-grader-cloud"
+resolve_s3 = true
+s3_prefix = "dev-grader-cloud"
+region = "eu-central-1"
+confirm_changeset = false
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+parameter_overrides = "DevState=\"local\" Env=\"dev\""

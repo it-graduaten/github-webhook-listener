@@ -9,6 +9,27 @@ Parameters:
   DevState:
     Type: String
     Default: local
+  Env:
+    Type: String
+    AllowedValues:
+      - dev
+      - prod
+
+Mappings:
+  ResourceNames:
+    dev:
+      ThingName: "dev-tm-autograder"
+      TmAutograderRoleName: "dev-tm-autograder-role"
+      TmAutograderLogBucketWriteOnlyRoleName: "dev-tm-autograder-log-bucket-write-only-role"
+      TmAutograderQueueName: "dev-tm-autograder-delivery-queue"
+      TmAutograderLogBucketName: "dev-tm-autograder-log-bucket"
+    prod:
+      ThingName: "tm-autograder"
+      TmAutograderRoleName: "tm-autograder-role"
+      TmAutograderLogBucketWriteOnlyRoleName: "TmAutograderLogBucketWriteOnlyRole"
+      TmAutograderQueueName: "tm-autograder-delivery-queue"
+      TmAutograderLogBucketName: "tm-autograder-log-bucket"
+
 
 Globals:
   Function:
@@ -20,7 +41,7 @@ Resources:
   TmAutograderThing:
       Type: AWS::IoT::Thing
       Properties:
-        ThingName: "tm-autograder"
+        ThingName: !FindInMap [ResourceNames, !Ref Env, ThingName]
 
   # Lambda function to trigger grader from a GitHub webhook
   TmAutograderTriggerFromWebhookFunction:
@@ -66,7 +87,7 @@ Resources:
   TmAutograderRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: "tm-autograder-role"
+      RoleName: !FindInMap [ResourceNames, !Ref Env, TmAutograderRoleName]
       AssumeRolePolicyDocument: 
         Version: "2012-10-17"
         Statement:
@@ -98,7 +119,7 @@ Resources:
   TmAutograderLogBucketWriteOnlyRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: "TmAutograderLogBucketWriteOnlyRole"
+      RoleName: !FindInMap [ResourceNames, !Ref Env, TmAutograderLogBucketWriteOnlyRoleName]
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -124,14 +145,14 @@ Resources:
   TmAutograderQueue:
     Type: AWS::SQS::Queue
     Properties: 
-      QueueName: "tm-autograder-delivery-queue"
+      QueueName: !FindInMap [ResourceNames, !Ref Env, TmAutograderQueueName]
       VisibilityTimeout: 120
 
   # S3 bucket to store the autograder logs
   TmAutograderLogBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: "tm-autograder-log-bucket"
+      BucketName: !FindInMap [ResourceNames, !Ref Env, TmAutograderLogBucketName]
       LifecycleConfiguration:
         Rules:
           - Id: "DeleteLogs"

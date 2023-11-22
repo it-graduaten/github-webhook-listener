@@ -34,6 +34,6 @@ def task_deploy_to_aws():
     yield {
         'name': 'deploy_to_aws',
         'actions': [
-            'sam build --use-container --cached && sam deploy'
+            'sam build --use-container --cached && sam deploy --config-env dev'
         ]
     }
