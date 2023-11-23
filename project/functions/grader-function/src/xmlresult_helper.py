@@ -350,54 +350,49 @@ def get_mustache_data(path_to_xml, assignment_name, log_filename, output_log):
         test_definition_name = test_definition.name
         # Get the class name
         class_name = test_definition.class_name
+        print("Test definition info: " + category_name + " - " + class_name + " - " + test_definition_name)
         # Check if a category with the name already exists
         if category_name not in [category.name for category in data.categories]:
-            # Create a new category
-            new_category = Category(
+            # If not, create a new category and append it to the data
+            category_to_use = Category(
                 category_id=category_name,
                 name=category_name,
                 classes=[]
             )
-            # Check if the class already exists
-            if class_name not in [test_class.name for test_class in classes]:
-                # Create a new class
-                new_class = TestClass(
-                    test_class_id="",
-                    name=class_name,
-                    tests=[],
-                    total_tests=0,
-                    failed_tests=0,
-                    passed_tests=0,
-                    total_runtime_in_ms=0
-                )
-                # Add the test to the class
-                new_class.tests.append(Test(
-                    name=test_definition_name,
-                    outcome=result.outcome,
-                    output=result.output,
-                    duration=result.duration
-                ))
-                # Add the class to the category
-                new_category.classes.append(new_class)
-            else:
-                # Get the class
-                new_class = next((test_class for test_class in classes if test_class.name == class_name), None)
-                # Add the test to the class
-                new_class.tests.append(Test(
-                    name=test_definition_name,
-                    outcome=result.outcome,
-                    output=result.output,
-                    duration=result.duration
-                ))
-            # Add the category to the data
-            data.categories.append(new_category)
+            data.categories.append(category_to_use)
         else:
-            # Get the category
-            new_category = next((category for category in data.categories if category.name == category_name), None)
-            # Get the class in the category
-            new_class = next((test_class for test_class in new_category.classes if test_class.name == class_name), None)
-            # Add the test to the class
-            new_class.tests.append(Test(
+            # Get the existing category
+            category_to_use = next((category for category in data.categories if category.name == category_name), None)
+
+        # If the category_to_use is still None, something went wrong
+        if category_to_use is None:
+            print("Something went wrong while getting the category to use")
+            continue
+
+        # Check if the class already exists in the category
+        if class_name not in [test_class.name for test_class in category_to_use.classes]:
+            # If not, create a new class and append it to the category
+            class_to_use = TestClass(
+                test_class_id="",
+                name=class_name,
+                tests=[],
+                total_tests=0,
+                failed_tests=0,
+                passed_tests=0,
+                total_runtime_in_ms=0
+            )
+            category_to_use.classes.append(class_to_use)
+        else:
+            # Get the existing class
+            class_to_use = next((test_class for test_class in category_to_use.classes if test_class.name == class_name), None)
+
+        # If the class_to_use is still None, something went wrong
+        if class_to_use is None:
+            print("Something went wrong while getting the class to use")
+            continue
+
+        # Add the test to the class
+        class_to_use.tests.append(Test(
                 name=test_definition_name,
                 outcome=result.outcome,
                 output=result.output,
