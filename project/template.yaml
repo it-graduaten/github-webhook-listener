@@ -1,0 +1,163 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  sam-app
+
+  Sample SAM Template for sam-app
+
+Parameters:
+  DevState:
+    Type: String
+    Default: local
+  Env:
+    Type: String
+    AllowedValues:
+      - dev
+      - prod
+
+Mappings:
+  ResourceNames:
+    dev:
+      ThingName: "dev-tm-autograder"
+      TmAutograderRoleName: "dev-tm-autograder-role"
+      TmAutograderLogBucketWriteOnlyRoleName: "dev-tm-autograder-log-bucket-write-only-role"
+      TmAutograderQueueName: "dev-tm-autograder-delivery-queue"
+      TmAutograderLogBucketName: "dev-tm-autograder-log-bucket"
+    prod:
+      ThingName: "tm-autograder"
+      TmAutograderRoleName: "tm-autograder-role"
+      TmAutograderLogBucketWriteOnlyRoleName: "TmAutograderLogBucketWriteOnlyRole"
+      TmAutograderQueueName: "tm-autograder-delivery-queue"
+      TmAutograderLogBucketName: "tm-autograder-log-bucket"
+
+
+Globals:
+  Function:
+    Timeout: 5
+    MemorySize: 128
+
+Resources:
+  # IoT thing
+  TmAutograderThing:
+      Type: AWS::IoT::Thing
+      Properties:
+        ThingName: !FindInMap [ResourceNames, !Ref Env, ThingName]
+
+  # Lambda function to trigger grader from a GitHub webhook
+  TmAutograderTriggerFromWebhookFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      CodeUri: functions/grader-trigger-function-from-webhook/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Role: !GetAtt TmAutograderRole.Arn
+      Architectures:
+        - x86_64
+      Events:
+        GithubWebhook:
+          Type: Api
+          Properties:
+            Path: /trigger-grader-from-webhook/{id}
+            Method: post
+      Environment:
+        Variables:
+          GRADER_DELIVERY_QUEUE_URL: !Ref TmAutograderQueue
+
+  # Lambda function to trigger grader from a GitHub action
+  TmAutograderTriggerFromActionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/grader-trigger-function-from-action/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Role: !GetAtt TmAutograderRole.Arn
+      Architectures:
+          - x86_64
+      Events:
+        Action:
+          Type: Api
+          Properties:
+            Path: /trigger-grader-from-action/{id}
+            Method: post
+      Environment:
+        Variables:
+          GRADER_DELIVERY_QUEUE_URL: !Ref TmAutograderQueue
+
+  # Iam role for the grader lambda function
+  TmAutograderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !FindInMap [ResourceNames, !Ref Env, TmAutograderRoleName]
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: 'sqs:SendMessage'
+                Resource: !GetAtt TmAutograderQueue.Arn
+        - PolicyName: "TmAutograderReadSSM"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: 'ssm:GetParameter'
+                Resource: "*"
+
+  # Role for accessing the S3 bucket
+  TmAutograderLogBucketWriteOnlyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !FindInMap [ResourceNames, !Ref Env, TmAutograderLogBucketWriteOnlyRoleName]
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                  - credentials.iot.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole
+      Policies:
+        - PolicyName: "TmAutograderBucketWriteOnly"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: 's3:PutObject'
+                Resource: !GetAtt TmAutograderLogBucket.Arn
+
+  # Sqs queue to deliver the grader requests
+  TmAutograderQueue:
+    Type: AWS::SQS::Queue
+    Properties: 
+      QueueName: !FindInMap [ResourceNames, !Ref Env, TmAutograderQueueName]
+      VisibilityTimeout: 120
+
+  # S3 bucket to store the autograder logs
+  TmAutograderLogBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !FindInMap [ResourceNames, !Ref Env, TmAutograderLogBucketName]
+      LifecycleConfiguration:
+        Rules:
+          - Id: "DeleteLogs"
+            Status: Enabled
+            ExpirationInDays: 30
+            NoncurrentVersionExpirationInDays: 30
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
