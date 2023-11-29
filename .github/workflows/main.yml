@@ -1,49 +1,38 @@
-name: Deliver container
+name: Publish Docker image
 
-on: push
+on:
+  release:
+    types: [published]
 
 jobs:
-  delivery:
+  push_to_registries:
+    name: Push Docker image to multiple registries
     runs-on: ubuntu-latest
-    name: Deliver container
+    permissions:
+      packages: write
+      contents: read
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v1
-
-      - name: Docker Login
-        run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Docker Build
-        run: docker build -t ${{ secrets.DOCKER_USER }}/github-webhook-listener:latest .
-
-      - name: Upload container to Docker Hub with Push
-        run: docker push ${{ secrets.DOCKER_USER }}/github-webhook-listener:latest
-
-  deploy:
-    runs-on: ubuntu-latest
-    name: Deploy container
-    needs: delivery
-    steps:
-    - name: Check out repository
-      uses: actions/checkout@v1
-    
-    - uses: okteto/context@latest
-      with:
-        token: ${{ secrets.OKTETO_TOKEN }}
-    
-    - name: "Activate Namespace"
-      uses: okteto/namespace@latest
-      with:
-        namespace: jorensynaevetm
-    
-    - name: "Deploy application"
-      uses: okteto/apply@latest
-      with:
-        namespace: jorensynaevetm
-        manifest: k8s.yaml
-
-    - name: "Push changes"
-      uses: okteto/push@latest
-      with:
-        namespace: jorensynaevetm
-        name: github-webhook-listener
+      - name: Check out the repo
+        uses: actions/checkout@v4
+      
+      - name: Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: |
+            ghcr.io/${{ github.repository }}
+      
+      - name: Build and push Docker images
+        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
+        with:
+          context: ./project/functions/grader-function
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
