@@ -1,2 +1,3 @@
 doit
 boto3
+awscrt==0.19.17
