@@ -174,7 +174,7 @@ def grade_console_app(message_id, assignment, assignment_folder, assignment_name
                     os.path.join(assignment_folder, "solution", chapter, assignment, "consoleapp",
                                  "Program.cs"))
         # Run the tests
-        test_command = f"dotnet test {assignment_folder}/solution/{chapter}/{assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\""
+        test_command = f"dotnet test {assignment_folder}/solution/{chapter}/{assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\" --blame-hang-timeout 10m --blame-hang-dump-type mini --blame-hang"
         rc, output = run_command(test_command)
         # Write the log to s3
         log_filename = f"{message_id}_{assignment_name}.log"
@@ -219,7 +219,7 @@ def grade_console_app_with_models(message_id, assignment, assignment_folder, ass
                         os.path.join(assignment_folder, "solution", chapter, assignment, "consoleapp",
                                      "Models"))
         # Run the tests
-        test_command = f"dotnet test {assignment_folder}/solution/{chapter}/{assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\""
+        test_command = f"dotnet test {assignment_folder}/solution/{chapter}/{assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\" --blame-hang-timeout 10m --blame-hang-dump-type mini --blame-hang"
         rc, output = run_command(test_command)
         # Write the log to s3
         log_filename = f"{message_id}_{assignment_name}.log"

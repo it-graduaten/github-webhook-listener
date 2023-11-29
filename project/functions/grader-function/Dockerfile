@@ -14,12 +14,18 @@ RUN bash ./dotnet-installer.sh
 
 RUN python3 -m pip install --upgrade pip
 RUN pip3 --no-cache-dir install --upgrade awscli
+RUN python3 -m pip install virtualenv
 
 COPY ./requirements.txt .
-RUN pip install -r requirements.txt && rm ./requirements.txt
 
 COPY lambda_function.py .
 COPY src ./src
+
+SHELL ["/bin/bash", "-c"]
+WORKDIR .
+
+RUN python3 -m virtualenv ENV
+RUN source ./ENV/bin/activate && pip install -r requirements.txt && rm ./requirements.txt
 
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh

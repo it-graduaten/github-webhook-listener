@@ -1,4 +1,5 @@
-boto3
+boto3[crt]
+awscrt
 PyGithub
 pygit2
 pydantic
