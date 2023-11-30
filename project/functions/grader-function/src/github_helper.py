@@ -4,6 +4,8 @@ import shutil
 import pandas as pd
 from github import Github
 from github import GithubException
+import git
+from datetime import datetime
 import requests
 
 
@@ -124,3 +126,26 @@ def get_student_identifier_from_classroom_assignment(token, github_username, cla
     # If no student identifier is found, return None
     print(f"Student identifier found: {student_identifier}. Github username: {github_username}.")
     return student_identifier
+
+
+def get_last_commit_time_for_folder(repo, folder_path):
+    """
+    Get the last commit time for a folder
+    @param repo: A git repo object
+    @param folder_path: The path to the folder
+    @return: The last commit time
+    """
+    try:
+        # Get the commit that last modified the file
+        last_commit = repo.git.log('-n', '1', '--format="%ai"', '--', folder_path)
+
+        print("Last commit", last_commit)
+
+        # Parse the commit timestamp
+        commit_time = datetime.strptime(last_commit.strip('"'), "%Y-%m-%d %H:%M:%S %z")
+
+        return commit_time
+
+    except git.GitCommandError:
+        print(f"Error: Unable to get commit information for file {folder_path}")
+        return None

@@ -1,6 +1,7 @@
 # Custom imports
 from src.xmlresult_helper import generate_html_report, get_mustache_data
-from src.github_helper import download_folder_from_repo, get_student_identifier_from_classroom_assignment
+from src.github_helper import download_folder_from_repo, get_student_identifier_from_classroom_assignment, \
+    get_last_commit_time_for_folder
 from src.canvas_manager import CanvasAPIManager
 from src.config import AppConfig, BotoSessionConfig, ParameterStoreConfig
 
@@ -14,6 +15,8 @@ import git
 import os
 import subprocess
 import time
+from datetime import datetime
+import pytz
 
 # Get all configuration
 boto_session_config = BotoSessionConfig.from_environ(environ=os.environ)
@@ -92,7 +95,7 @@ def process_record(record):
             # Get the according assignment from the canvas assignments
             canvas_assignment = canvas_api_manager.get_assignment_by_name(assignment_name)
             # Check if the assignment should be graded
-            should_grade = check_if_should_grade(canvas_assignment, push_timestamp, assignment_name)
+            should_grade = check_if_should_grade(canvas_assignment, assignment_to_grade, student_repo)
             if not should_grade:
                 print(f"Should not grade {assignment_name}")
                 continue
@@ -136,16 +139,24 @@ def process_record(record):
     shutil.rmtree(TMP_FOLDER)
 
 
-def check_if_should_grade(canvas_assignment, push_timestamp, assignment_name):
+def check_if_should_grade(canvas_assignment, assignment_to_grade, repo):
+    chapter = assignment_to_grade['chapter']
+    assignment = assignment_to_grade['assignment']
     # If the assignment is not found, it can be skipped
     if canvas_assignment is None:
-        print(f'Could not find assignment with name {assignment_name}. Skipped grading for this assignment')
+        print(f'Could not find assignment with name {assignment}. Skipped grading for this assignment')
         return False
+    print("Getting last commit for ", f"{chapter}/{assignment}")
+    # Get the moment of the last change in the assignment
+    last_commit_time = get_last_commit_time_for_folder(repo, f"{chapter}/{assignment}")
+
     # If the due date of the assignment is before the push_timestamp, it can be skipped
     if canvas_assignment.due_at is not None:
-        if canvas_assignment.due_at < push_timestamp:
+        canvas_assignment_due_at = datetime.strptime(canvas_assignment.due_at, "%Y-%m-%dT%H:%M:%SZ")
+        canvas_assignment_due_at = pytz.utc.localize(canvas_assignment_due_at)
+        if canvas_assignment_due_at < last_commit_time:
             print(
-                f'Assignment {assignment_name} was due before the push timestamp, skipping')
+                f'Assignment {assignment} was due before the push timestamp, skipping')
             return False
     return True
 
