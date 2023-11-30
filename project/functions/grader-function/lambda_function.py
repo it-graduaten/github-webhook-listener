@@ -1,28 +1,34 @@
+# Custom imports
 from src.xmlresult_helper import generate_html_report, get_mustache_data
-from src.github_helper import download_folder_from_repo, get_student_identifier_from_classroom, \
-    get_student_identifier_from_classroom_assignment
+from src.github_helper import download_folder_from_repo, get_student_identifier_from_classroom_assignment, \
+    get_last_commit_time_for_folder
 from src.canvas_manager import CanvasAPIManager
-import sys
-import git
+from src.config import AppConfig, BotoSessionConfig, ParameterStoreConfig
 
-import os
+# Standard library imports
 from os import path
+from awsiot_credentialhelper.boto3_session import Boto3SessionProvider
 import json
 import shutil
 import stat
-
+import git
+import os
 import subprocess
 import time
+from datetime import datetime
+import pytz
 
-from awsiot_credentialhelper.boto3_session import Boto3SessionProvider
+# Get all configuration
+boto_session_config = BotoSessionConfig.from_environ(environ=os.environ)
+parameter_store_config = ParameterStoreConfig.from_environ(environ=os.environ)
 
 # Create boto3 session object
 boto3_session = Boto3SessionProvider(
-    endpoint="c3ams71ru9zrmk.credentials.iot.eu-central-1.amazonaws.com",
-    role_alias="test-role-for-grader-alias",
-    certificate="/root/.aws/certs/ebdc06909aaf7de014439272ca845c59b092a3aa6d5ca884972cedcd43056e07-certificate.pem.crt",
-    private_key="/root/.aws/certs/ebdc06909aaf7de014439272ca845c59b092a3aa6d5ca884972cedcd43056e07-private.pem.key",
-    thing_name="grader-01",
+    endpoint=boto_session_config.endpoint,
+    role_alias=boto_session_config.role_alias,
+    certificate=boto_session_config.certificate,
+    private_key=boto_session_config.private_key,
+    thing_name=boto_session_config.thing_name,
 ).get_session()
 
 sqs = boto3_session.client('sqs')
@@ -30,7 +36,7 @@ ssm = boto3_session.client('ssm')
 s3 = boto3_session.client('s3')
 
 secret_response = ssm.get_parameter(
-    Name='/grader/secrets',
+    Name=parameter_store_config.secret_name,
     WithDecryption=True
 )
 parsed_secret = json.loads(secret_response['Parameter']['Value'])['Parameters']
@@ -71,44 +77,52 @@ def process_record(record):
     push_timestamp = payload['push_timestamp']
     # Get all unique assignments to grade
     assignments_to_grade = get_unique_assignments_to_grade(payload)
+    # Clone the student repo
+    student_repo_path = os.path.join(TMP_FOLDER, "student_repo")
+    student_repo = clone_git_repo(
+        repo_full_name=payload['student_repo_full_name'],
+        destination_folder=student_repo_path
+    )
+    # Clone the solution repo
+    solution_repo_path = os.path.join(TMP_FOLDER, "solution_repo")
+    solution_repo = clone_git_repo(
+        repo_full_name=payload['solution_repo_full_name'],
+        destination_folder=solution_repo_path
+    )
 
     for assignment_to_grade in assignments_to_grade:
         chapter = assignment_to_grade['chapter']
         assignment = assignment_to_grade['assignment']
         assignment_name = assignment_to_grade['assignment_name']
-        # Create the path to the assignment folder
-        assignment_folder = os.path.join(TMP_FOLDER, f"{chapter}-{assignment}")
+
         try:
             # Get the according assignment from the canvas assignments
             canvas_assignment = canvas_api_manager.get_assignment_by_name(assignment_name)
             # Check if the assignment should be graded
-            should_grade = check_if_should_grade(canvas_assignment, push_timestamp, assignment_name)
+            should_grade = check_if_should_grade(canvas_assignment, assignment_to_grade, student_repo)
             if not should_grade:
                 print(f"Should not grade {assignment_name}")
                 continue
             # Check the application type
             if payload['application_type'] == APPLICATION_CONSOLE:
-                grade, path_to_report = grade_console_app(
-                    message_id=message_id,
-                    assignment=assignment,
-                    assignment_folder=assignment_folder,
-                    assignment_name=assignment_name,
-                    chapter=chapter,
-                    payload=payload,
-                    push_timestamp=push_timestamp
-                )
+                # TODO: Fix this later
+                # grade, path_to_report = grade_console_app(
+                #     message_id=message_id,
+                #     assignment=assignment,
+                #     assignment_folder=assignment_folder,
+                #     assignment_name=assignment_name,
+                #     chapter=chapter,
+                #     payload=payload,
+                #     push_timestamp=push_timestamp
+                # )
                 # Update the grade on Canvas
                 canvas_api_manager.update_grade(student_identifier, canvas_assignment, grade, path_to_report)
             elif payload['application_type'] == APPLICATION_CONSOLE_WITH_MODELS:
                 # Do something with console app with models
                 grade, path_to_report = grade_console_app_with_models(
-                    message_id=message_id,
-                    assignment=assignment,
-                    assignment_folder=assignment_folder,
-                    assignment_name=assignment_name,
-                    chapter=chapter,
-                    payload=payload,
-                    push_timestamp=push_timestamp
+                    student_repo_path=student_repo_path,
+                    solution_repo_path=solution_repo_path,
+                    assignment_config=assignment_to_grade
                 )
                 # Update the grade on Canvas
                 canvas_api_manager.update_grade(student_identifier, canvas_assignment, grade, path_to_report)
@@ -121,21 +135,28 @@ def process_record(record):
             print(f"Error while processing {assignment_name}: {e}")
         finally:
             print("Cleaning up")
-            shutil.rmtree(assignment_folder)
     print("Done")
     shutil.rmtree(TMP_FOLDER)
 
 
-def check_if_should_grade(canvas_assignment, push_timestamp, assignment_name):
+def check_if_should_grade(canvas_assignment, assignment_to_grade, repo):
+    chapter = assignment_to_grade['chapter']
+    assignment = assignment_to_grade['assignment']
     # If the assignment is not found, it can be skipped
     if canvas_assignment is None:
-        print(f'Could not find assignment with name {assignment_name}. Skipped grading for this assignment')
+        print(f'Could not find assignment with name {assignment}. Skipped grading for this assignment')
         return False
+    print("Getting last commit for ", f"{chapter}/{assignment}")
+    # Get the moment of the last change in the assignment
+    last_commit_time = get_last_commit_time_for_folder(repo, f"{chapter}/{assignment}")
+
     # If the due date of the assignment is before the push_timestamp, it can be skipped
     if canvas_assignment.due_at is not None:
-        if canvas_assignment.due_at < push_timestamp:
+        canvas_assignment_due_at = datetime.strptime(canvas_assignment.due_at, "%Y-%m-%dT%H:%M:%SZ")
+        canvas_assignment_due_at = pytz.utc.localize(canvas_assignment_due_at)
+        if canvas_assignment_due_at < last_commit_time:
             print(
-                f'Assignment {assignment_name} was due before the push timestamp, skipping')
+                f'Assignment {assignment} was due before the push timestamp, skipping')
             return False
     return True
 
@@ -191,47 +212,37 @@ def grade_console_app(message_id, assignment, assignment_folder, assignment_name
         print(f"Error while processing {assignment_name}: {e}")
 
 
-def grade_console_app_with_models(message_id, assignment, assignment_folder, assignment_name, chapter, payload,
-                                  push_timestamp):
+def grade_console_app_with_models(student_repo_path, solution_repo_path, assignment_config):
+    chapter = assignment_config['chapter']
+    assignment = assignment_config['assignment']
+    assignment_name = assignment_config['assignment_name']
+    path_to_student_assignment = os.path.join(student_repo_path, chapter, assignment)
+    path_to_solution_assignment = os.path.join(solution_repo_path, chapter, assignment)
+
     try:
-        # Clone the solution folder
-        clone_git_repo(
-            repo_full_name=payload['solution_repo_full_name'],
-            destination_folder=f"{assignment_folder}/solution"
-        )
-        # Clone the students submission
-        clone_git_repo(
-            repo_full_name=payload['student_repo_full_name'],
-            destination_folder=f"{assignment_folder}/student"
-        )
         # Remove the 'Program.cs' file from the solution
-        os.remove(os.path.join(assignment_folder, "solution",
-                               chapter, assignment, "consoleapp", "Program.cs"))
+        os.remove(os.path.join(path_to_solution_assignment, "consoleapp", "Program.cs"))
         # Copy the Program.cs file from the student to the solution
-        shutil.copy(os.path.join(assignment_folder, "student", chapter, assignment, "consoleapp", "Program.cs"),
-                    os.path.join(assignment_folder, "solution", chapter, assignment, "consoleapp",
-                                 "Program.cs"))
+        shutil.copy(os.path.join(path_to_student_assignment, "consoleapp", "Program.cs"),
+                    os.path.join(path_to_solution_assignment, "consoleapp", "Program.cs"))
         # Remove the Models folder from the solution, even if it is not empty
-        shutil.rmtree(os.path.join(assignment_folder, "solution",
-                                   chapter, assignment, "consoleapp", "Models"))
+        shutil.rmtree(os.path.join(path_to_solution_assignment, "consoleapp", "Models"))
         # Copy the Models folder from the student to the solution
-        shutil.copytree(os.path.join(assignment_folder, "student", chapter, assignment, "consoleapp", "Models"),
-                        os.path.join(assignment_folder, "solution", chapter, assignment, "consoleapp",
-                                     "Models"))
+        shutil.copytree(os.path.join(path_to_student_assignment, "consoleapp", "Models"),
+                        os.path.join(path_to_solution_assignment, "consoleapp", "Models"))
         # Run the tests
-        test_command = f"dotnet test {assignment_folder}/solution/{chapter}/{assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\" --blame-hang-timeout 10m --blame-hang-dump-type mini --blame-hang"
+        test_command = f"dotnet test {path_to_solution_assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\" --blame-hang-timeout 10m --blame-hang-dump-type mini --blame-hang"
         rc, output = run_command(test_command)
-        # Write the log to s3
-        log_filename = f"{message_id}_{assignment_name}.log"
-        write_log_to_s3(output, log_filename)
-        path_to_result_xml = f"{assignment_folder}/solution/{chapter}/{assignment}/test/TestResults/result.xml"
+        path_to_result_xml = f"{path_to_solution_assignment}/test/TestResults/result.xml"
         # Create a report
-        data = get_mustache_data(path_to_result_xml, assignment_name, log_filename, output)
+        data = get_mustache_data(path_to_result_xml, assignment_name, "TODO", output)
         print(data.to_json())
+        # Get the current timestamp as a string
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         path_to_report = generate_html_report(
             template_path=os.path.join(TMP_FOLDER, "tm-autograder-config", "report-templates",
                                        "console_app_with_models.html"),
-            output_path=f"{assignment_folder}/grader-report-{push_timestamp}.html",
+            output_path=f"{TMP_FOLDER}/report-{timestamp}.html",
             data=data.to_dict())
         return data.grade, path_to_report
     except Exception as e:
@@ -249,6 +260,12 @@ def write_log_to_s3(log, log_filename):
 
 
 def clone_git_repo(repo_full_name, destination_folder):
+    """
+    Clones a git repo using GitPython
+    @param repo_full_name: the full name of the repo, e.g. it-graduaten/tm-autograder
+    @param destination_folder: the folder where the repo should be cloned to
+    @return: the repo object
+    """
     print("Cloning repo", repo_full_name)
     # Remove the repo if it exists
     if path.exists(destination_folder):
@@ -264,6 +281,7 @@ def clone_git_repo(repo_full_name, destination_folder):
         f'https://JorenSynaeveTM:{GITHUB_ACCESS_TOKEN}@github.com/{repo_full_name}.git',
         destination_folder)
     print("Cloned repo to", destination_folder)
+    return repo
 
 
 def run_command(command):
@@ -287,7 +305,6 @@ def run_command(command):
 
 
 if __name__ == "__main__":
-
     while True:
         time.sleep(1)
         print("Next iteration")

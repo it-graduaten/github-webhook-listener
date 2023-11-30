@@ -2,6 +2,10 @@
 __pycache
 .DS_Store
 .env
+.env.*
+!.env.example
+
+env.json
 
 # Custom
 /temp
@@ -22,3 +26,6 @@ aws
 .aws-sam
 .doit.db.db
 virtual_env
+
+.doit.*
+venv

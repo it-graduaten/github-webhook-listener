@@ -5,3 +5,11 @@ services:
     build: ./project/functions/grader-function
     volumes:
       - ./.aws-config:/root/.aws
+    environment:
+      - APP_ENVIRONMENT
+      - BOTO_SESSION_ENDPOINT
+      - BOTO_SESSION_ROLE_ALIAS
+      - BOTO_SESSION_CERTIFICATE
+      - BOTO_SESSION_PRIVATE_KEY
+      - BOTO_SESSION_THING_NAME
+      - PARAMETER_STORE_SECRET_NAME

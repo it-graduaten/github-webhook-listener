@@ -83,6 +83,7 @@ def create_grading_request(request_body):
 def get_config(classroom_assignment_id):
     """
     Get the config for the given classroom assignment id from the secret manager
+    @param classroom_assignment_id: The id of the classroom assignment
     """
     try:
         secret_response = ssm.get_parameter(
