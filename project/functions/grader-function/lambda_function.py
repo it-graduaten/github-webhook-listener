@@ -83,14 +83,18 @@ def process_record(record):
         repo_full_name=payload['student_repo_full_name'],
         destination_folder=student_repo_path
     )
+    # Clone the solution repo
+    solution_repo_path = os.path.join(TMP_FOLDER, "solution_repo")
+    solution_repo = clone_git_repo(
+        repo_full_name=payload['solution_repo_full_name'],
+        destination_folder=solution_repo_path
+    )
 
     for assignment_to_grade in assignments_to_grade:
         chapter = assignment_to_grade['chapter']
         assignment = assignment_to_grade['assignment']
         assignment_name = assignment_to_grade['assignment_name']
 
-        # Create the path to the assignment folder
-        assignment_folder = os.path.join(TMP_FOLDER, f"{chapter}-{assignment}")
         try:
             # Get the according assignment from the canvas assignments
             canvas_assignment = canvas_api_manager.get_assignment_by_name(assignment_name)
@@ -101,27 +105,24 @@ def process_record(record):
                 continue
             # Check the application type
             if payload['application_type'] == APPLICATION_CONSOLE:
-                grade, path_to_report = grade_console_app(
-                    message_id=message_id,
-                    assignment=assignment,
-                    assignment_folder=assignment_folder,
-                    assignment_name=assignment_name,
-                    chapter=chapter,
-                    payload=payload,
-                    push_timestamp=push_timestamp
-                )
+                # TODO: Fix this later
+                # grade, path_to_report = grade_console_app(
+                #     message_id=message_id,
+                #     assignment=assignment,
+                #     assignment_folder=assignment_folder,
+                #     assignment_name=assignment_name,
+                #     chapter=chapter,
+                #     payload=payload,
+                #     push_timestamp=push_timestamp
+                # )
                 # Update the grade on Canvas
                 canvas_api_manager.update_grade(student_identifier, canvas_assignment, grade, path_to_report)
             elif payload['application_type'] == APPLICATION_CONSOLE_WITH_MODELS:
                 # Do something with console app with models
                 grade, path_to_report = grade_console_app_with_models(
-                    message_id=message_id,
-                    assignment=assignment,
-                    assignment_folder=assignment_folder,
-                    assignment_name=assignment_name,
-                    chapter=chapter,
-                    payload=payload,
-                    push_timestamp=push_timestamp
+                    student_repo_path=student_repo_path,
+                    solution_repo_path=solution_repo_path,
+                    assignment_config=assignment_to_grade
                 )
                 # Update the grade on Canvas
                 canvas_api_manager.update_grade(student_identifier, canvas_assignment, grade, path_to_report)
@@ -134,7 +135,6 @@ def process_record(record):
             print(f"Error while processing {assignment_name}: {e}")
         finally:
             print("Cleaning up")
-            shutil.rmtree(assignment_folder)
     print("Done")
     shutil.rmtree(TMP_FOLDER)
 
@@ -212,47 +212,37 @@ def grade_console_app(message_id, assignment, assignment_folder, assignment_name
         print(f"Error while processing {assignment_name}: {e}")
 
 
-def grade_console_app_with_models(message_id, assignment, assignment_folder, assignment_name, chapter, payload,
-                                  push_timestamp):
+def grade_console_app_with_models(student_repo_path, solution_repo_path, assignment_config):
+    chapter = assignment_config['chapter']
+    assignment = assignment_config['assignment']
+    assignment_name = assignment_config['assignment_name']
+    path_to_student_assignment = os.path.join(student_repo_path, chapter, assignment)
+    path_to_solution_assignment = os.path.join(solution_repo_path, chapter, assignment)
+
     try:
-        # Clone the solution folder
-        clone_git_repo(
-            repo_full_name=payload['solution_repo_full_name'],
-            destination_folder=f"{assignment_folder}/solution"
-        )
-        # Clone the students submission
-        clone_git_repo(
-            repo_full_name=payload['student_repo_full_name'],
-            destination_folder=f"{assignment_folder}/student"
-        )
         # Remove the 'Program.cs' file from the solution
-        os.remove(os.path.join(assignment_folder, "solution",
-                               chapter, assignment, "consoleapp", "Program.cs"))
+        os.remove(os.path.join(path_to_solution_assignment, "consoleapp", "Program.cs"))
         # Copy the Program.cs file from the student to the solution
-        shutil.copy(os.path.join(assignment_folder, "student", chapter, assignment, "consoleapp", "Program.cs"),
-                    os.path.join(assignment_folder, "solution", chapter, assignment, "consoleapp",
-                                 "Program.cs"))
+        shutil.copy(os.path.join(path_to_student_assignment, "consoleapp", "Program.cs"),
+                    os.path.join(path_to_solution_assignment, "consoleapp", "Program.cs"))
         # Remove the Models folder from the solution, even if it is not empty
-        shutil.rmtree(os.path.join(assignment_folder, "solution",
-                                   chapter, assignment, "consoleapp", "Models"))
+        shutil.rmtree(os.path.join(path_to_solution_assignment, "consoleapp", "Models"))
         # Copy the Models folder from the student to the solution
-        shutil.copytree(os.path.join(assignment_folder, "student", chapter, assignment, "consoleapp", "Models"),
-                        os.path.join(assignment_folder, "solution", chapter, assignment, "consoleapp",
-                                     "Models"))
+        shutil.copytree(os.path.join(path_to_student_assignment, "consoleapp", "Models"),
+                        os.path.join(path_to_solution_assignment, "consoleapp", "Models"))
         # Run the tests
-        test_command = f"dotnet test {assignment_folder}/solution/{chapter}/{assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\" --blame-hang-timeout 10m --blame-hang-dump-type mini --blame-hang"
+        test_command = f"dotnet test {path_to_solution_assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\" --blame-hang-timeout 10m --blame-hang-dump-type mini --blame-hang"
         rc, output = run_command(test_command)
-        # Write the log to s3
-        log_filename = f"{message_id}_{assignment_name}.log"
-        write_log_to_s3(output, log_filename)
-        path_to_result_xml = f"{assignment_folder}/solution/{chapter}/{assignment}/test/TestResults/result.xml"
+        path_to_result_xml = f"{path_to_solution_assignment}/test/TestResults/result.xml"
         # Create a report
-        data = get_mustache_data(path_to_result_xml, assignment_name, log_filename, output)
+        data = get_mustache_data(path_to_result_xml, assignment_name, "TODO", output)
         print(data.to_json())
+        # Get the current timestamp as a string
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         path_to_report = generate_html_report(
             template_path=os.path.join(TMP_FOLDER, "tm-autograder-config", "report-templates",
                                        "console_app_with_models.html"),
-            output_path=f"{assignment_folder}/grader-report-{push_timestamp}.html",
+            output_path=f"{TMP_FOLDER}/report-{timestamp}.html",
             data=data.to_dict())
         return data.grade, path_to_report
     except Exception as e:
