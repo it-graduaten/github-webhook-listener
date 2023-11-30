@@ -26,3 +26,6 @@ aws
 .aws-sam
 .doit.db.db
 virtual_env
+
+.doit.*
+venv
