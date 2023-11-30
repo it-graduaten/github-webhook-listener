@@ -2,6 +2,9 @@
 __pycache
 .DS_Store
 .env
+.env.*
+
+env.json
 
 # Custom
 /temp

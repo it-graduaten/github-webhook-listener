@@ -1,28 +1,31 @@
+# Custom imports
 from src.xmlresult_helper import generate_html_report, get_mustache_data
-from src.github_helper import download_folder_from_repo, get_student_identifier_from_classroom, \
-    get_student_identifier_from_classroom_assignment
+from src.github_helper import download_folder_from_repo, get_student_identifier_from_classroom_assignment
 from src.canvas_manager import CanvasAPIManager
-import sys
-import git
+from src.config import AppConfig, BotoSessionConfig, ParameterStoreConfig
 
-import os
+# Standard library imports
 from os import path
+from awsiot_credentialhelper.boto3_session import Boto3SessionProvider
 import json
 import shutil
 import stat
-
+import git
+import os
 import subprocess
 import time
 
-from awsiot_credentialhelper.boto3_session import Boto3SessionProvider
+# Get all configuration
+boto_session_config = BotoSessionConfig.from_environ(environ=os.environ)
+parameter_store_config = ParameterStoreConfig.from_environ(environ=os.environ)
 
 # Create boto3 session object
 boto3_session = Boto3SessionProvider(
-    endpoint="c3ams71ru9zrmk.credentials.iot.eu-central-1.amazonaws.com",
-    role_alias="test-role-for-grader-alias",
-    certificate="/root/.aws/certs/ebdc06909aaf7de014439272ca845c59b092a3aa6d5ca884972cedcd43056e07-certificate.pem.crt",
-    private_key="/root/.aws/certs/ebdc06909aaf7de014439272ca845c59b092a3aa6d5ca884972cedcd43056e07-private.pem.key",
-    thing_name="grader-01",
+    endpoint=boto_session_config.endpoint,
+    role_alias=boto_session_config.role_alias,
+    certificate=boto_session_config.certificate,
+    private_key=boto_session_config.private_key,
+    thing_name=boto_session_config.thing_name,
 ).get_session()
 
 sqs = boto3_session.client('sqs')
@@ -30,7 +33,7 @@ ssm = boto3_session.client('ssm')
 s3 = boto3_session.client('s3')
 
 secret_response = ssm.get_parameter(
-    Name='/grader/secrets',
+    Name=parameter_store_config.secret_name,
     WithDecryption=True
 )
 parsed_secret = json.loads(secret_response['Parameter']['Value'])['Parameters']
@@ -71,11 +74,18 @@ def process_record(record):
     push_timestamp = payload['push_timestamp']
     # Get all unique assignments to grade
     assignments_to_grade = get_unique_assignments_to_grade(payload)
+    # Clone the student repo
+    student_repo_path = os.path.join(TMP_FOLDER, "student_repo")
+    student_repo = clone_git_repo(
+        repo_full_name=payload['student_repo_full_name'],
+        destination_folder=student_repo_path
+    )
 
     for assignment_to_grade in assignments_to_grade:
         chapter = assignment_to_grade['chapter']
         assignment = assignment_to_grade['assignment']
         assignment_name = assignment_to_grade['assignment_name']
+
         # Create the path to the assignment folder
         assignment_folder = os.path.join(TMP_FOLDER, f"{chapter}-{assignment}")
         try:
@@ -249,6 +259,12 @@ def write_log_to_s3(log, log_filename):
 
 
 def clone_git_repo(repo_full_name, destination_folder):
+    """
+    Clones a git repo using GitPython
+    @param repo_full_name: the full name of the repo, e.g. it-graduaten/tm-autograder
+    @param destination_folder: the folder where the repo should be cloned to
+    @return: the repo object
+    """
     print("Cloning repo", repo_full_name)
     # Remove the repo if it exists
     if path.exists(destination_folder):
@@ -264,6 +280,7 @@ def clone_git_repo(repo_full_name, destination_folder):
         f'https://JorenSynaeveTM:{GITHUB_ACCESS_TOKEN}@github.com/{repo_full_name}.git',
         destination_folder)
     print("Cloned repo to", destination_folder)
+    return repo
 
 
 def run_command(command):
@@ -287,7 +304,6 @@ def run_command(command):
 
 
 if __name__ == "__main__":
-
     while True:
         time.sleep(1)
         print("Next iteration")
