@@ -168,10 +168,19 @@ Resources:
     Properties:
       TableName: !Sub "${Env}-tm-autograder-request-table"
       AttributeDefinitions:
-        - AttributeName: id
+        - AttributeName: Id
+          AttributeType: S
+        - AttributeName: Timestamp
+          AttributeType: N
+        - AttributeName: GithubUsername
+          AttributeType: S
+        - AttributeName: Status
           AttributeType: S
       KeySchema:
         - AttributeName: id
           KeyType: HASH
         - AttributeName: timestamp
           KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: timestamp
+        Enabled: true
