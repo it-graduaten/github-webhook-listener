@@ -161,3 +161,17 @@ Resources:
             NoncurrentVersionExpirationInDays: 30
             AbortIncompleteMultipartUpload:
               DaysAfterInitiation: 7
+
+  # Dynamo DB table to store the grader requests
+  TmAutograderRequestTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${Env}-tm-autograder-request-table"
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
