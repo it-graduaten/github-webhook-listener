@@ -172,17 +172,13 @@ Resources:
           AttributeType: S
         - AttributeName: Timestamp
           AttributeType: N
-        - AttributeName: GithubUsername
-          AttributeType: S
-        - AttributeName: Status
-          AttributeType: S
       KeySchema:
-        - AttributeName: id
+        - AttributeName: Id
           KeyType: HASH
-        - AttributeName: timestamp
+        - AttributeName: Timestamp
           KeyType: RANGE
       TimeToLiveSpecification:
-        AttributeName: timestamp
+        AttributeName: Timestamp
         Enabled: true
       ProvisionedThroughput:
         ReadCapacityUnits: 5
