@@ -184,3 +184,6 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: timestamp
         Enabled: true
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 2
