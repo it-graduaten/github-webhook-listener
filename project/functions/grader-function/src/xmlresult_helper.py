@@ -248,7 +248,13 @@ def transform_duration_string_to_ms(duration_str):
     return milliseconds
 
 
+
 def get_unit_test_results(xml_root):
+    """
+    Method to read the xml result file and return a list of TestResult objects
+    @param xml_root:
+    @return: List of TestResult objects
+    """
     # Get every unit test result
     unit_test_results = xml_root.findall(XML_NAMESPACE + "Results/" + XML_NAMESPACE + "UnitTestResult")
     # Create a list of TestResult objects
