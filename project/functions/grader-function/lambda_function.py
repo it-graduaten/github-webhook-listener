@@ -1,5 +1,6 @@
 # Custom imports
-from src.mustache_report_helper import create_html_report, transform_to_mustache_dotnet_data
+from src.mustache_report_helper import create_html_report, transform_to_mustache_dotnet_data, \
+    get_empty_mustache_dotnet_data
 from src.xmlresult_helper import transform_xml_to_unittest_result
 from src.github_helper import download_folder_from_repo, get_student_identifier_from_classroom_assignment, \
     get_last_commit_time_for_folder
@@ -236,14 +237,17 @@ def grade_console_app_with_models(student_repo_path, solution_repo_path, assignm
         test_command = f"dotnet test {path_to_solution_assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\" --blame-hang-timeout 10m --blame-hang-dump-type mini --blame-hang"
         rc, output = run_command(test_command)
         path_to_result_xml = f"{path_to_solution_assignment}/test/TestResults/result.xml"
-        # Create a report
+        # Get the unit test result object
         unittest_result_obj = transform_xml_to_unittest_result(path_to_result_xml)
-        mustache_data = transform_to_mustache_dotnet_data(unittest_result_obj)
+        # Transform the unit test result object to a mustache data object
+        mustache_data = transform_to_mustache_dotnet_data(unittest_result_obj) \
+            if unittest_result_obj is not None \
+            else get_empty_mustache_dotnet_data(assignment_name, "TODO", output)
         print(mustache_data.to_json())
         # Get the current timestamp as a string
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         path_to_report = create_html_report(
-            template_path=os.path.join(TMP_FOLDER, "tm-autograder-config", "report-templates",
+            path_to_template=os.path.join(TMP_FOLDER, "tm-autograder-config", "report-templates",
                                        "console_app_with_models.html"),
             output_path=f"{TMP_FOLDER}/report-{timestamp}.html",
             data=mustache_data.to_dict())

@@ -254,6 +254,6 @@ def transform_to_mustache_dotnet_data(unittest_xml_data):
     return data
 
 
-def get_empty_mustache_data(assignment_name, log_filename, output_log):
+def get_empty_mustache_dotnet_data(assignment_name, log_filename, output_log):
     data = DotnetData(title=assignment_name, log_filename=log_filename, output_log=output_log)
     return data
