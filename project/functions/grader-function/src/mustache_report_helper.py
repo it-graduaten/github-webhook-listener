@@ -28,6 +28,7 @@ class DotnetTest:
         self.duration = duration
         self.output = output
         self.has_error = outcome == "Failed"
+        self.input_to_console = None
 
 
 class DotnetTestClass:
@@ -162,6 +163,7 @@ class DotnetData:
                             "stdout": test.output.stdout if test.output else None
                         },
                         "has_error": test.has_error,
+                        "input_to_console": test.input_to_console
                     }
                     class_data["tests"].append(test_data)
                 category_data["classes"].append(class_data)
@@ -257,3 +259,53 @@ def transform_to_mustache_dotnet_data(unittest_xml_data):
 def get_empty_mustache_dotnet_data(assignment_name, log_filename, output_log):
     data = DotnetData(title=assignment_name, log_filename=log_filename, output_log=output_log)
     return data
+
+
+def get_inputs_outputs_by_test_id(io_config, test_id):
+    print(io_config)
+    if io_config is None:
+        return None, None
+    # Get the ioConfig at the testId
+    io = io_config[test_id]
+    print(io)
+    # Get the inputs
+    inputs = io["inputs"]
+    print(inputs)
+    # Get the outputs
+    outputs = io["outputs"]
+    return inputs, outputs
+
+
+def add_inputs_outputs_to_mustache_data(mustache_data: type(DotnetData), io_config):
+    for category in mustache_data.categories:
+        if category.name != "Console":
+            continue
+        for test_class in category.classes:
+            for test in test_class.tests:
+                if (test.output is None) or (test.output.stdout is None):
+                    continue
+                stdout = test.output.stdout
+                stdout_pieces = stdout.split("|")
+                # Get the piece containing "testId"
+                test_id_piece = [piece for piece in stdout_pieces if "testId" in piece]
+                if len(test_id_piece) == 0:
+                    continue
+                print("We reached 1")
+                # Split on ":"
+                test_id_pieces = test_id_piece[0].split(":")
+                print(test_id_pieces)
+                io_id = test_id_pieces[1].strip()
+                inputs, outputs = get_inputs_outputs_by_test_id(io_config, int(io_id))
+                # Convert all inputs to strings, if they are not already
+                inputs = [str(input) for input in inputs]
+                # Convert all outputs to strings, if they are not already
+                outputs = [str(output) for output in outputs]
+                # Join the inputs using a newline
+                inputs = "\n".join(inputs)
+                # Join the outputs using a newline
+                outputs = "\n".join(outputs)
+                print("We reached 2")
+                test.input_to_console = inputs
+
+    print("We reached 3")
+    return mustache_data

@@ -20,6 +20,7 @@ COPY ./requirements.txt .
 
 COPY lambda_function.py .
 COPY src ./src
+COPY grader-html-reports ./grader-html-reports
 
 SHELL ["/bin/bash", "-c"]
 WORKDIR .

@@ -115,6 +115,7 @@ def get_unit_test_results(xml_root):
             output_stacktrace = output.find(XML_NAMESPACE + "ErrorInfo/" + XML_NAMESPACE + "StackTrace")
             output_stdout = output.find(XML_NAMESPACE + "StdOut")
             stdout_text = output_stdout.text if output_stdout is not None else None
+            print(stdout_text)
             if stdout_text is not None and 'Debug Trace:\n' in stdout_text:
                 stdout_text = stdout_text.replace('Debug Trace:\n', '')
             output_obj = UnitTestResultXmlOutput(
