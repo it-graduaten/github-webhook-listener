@@ -1,9 +1,12 @@
 # Custom imports
-from src.xmlresult_helper import generate_html_report, get_mustache_data
+from src.mustache_report_helper import create_html_report, transform_to_mustache_dotnet_data, \
+    get_empty_mustache_dotnet_data, add_inputs_outputs_to_mustache_data
+from src.xmlresult_helper import transform_xml_to_unittest_result
 from src.github_helper import download_folder_from_repo, get_student_identifier_from_classroom_assignment, \
     get_last_commit_time_for_folder
 from src.canvas_manager import CanvasAPIManager
 from src.config import AppConfig, BotoSessionConfig, ParameterStoreConfig
+from src.io_test_helper import get_io_config
 
 # Standard library imports
 from os import path
@@ -176,40 +179,41 @@ def get_unique_assignments_to_grade(payload):
 
 
 def grade_console_app(message_id, assignment, assignment_folder, assignment_name, chapter, payload, push_timestamp):
-    try:
-        # Download the solution folder
-        download_folder_from_repo(GITHUB_ACCESS_TOKEN, repo_full_name=payload['solution_repo_full_name'],
-                                  branch="main",
-                                  folder_to_download=f"{chapter}/{assignment}",
-                                  destination_folder=f"{assignment_folder}/solution")
-        # Download the students submission
-        download_folder_from_repo(GITHUB_ACCESS_TOKEN, repo_full_name=payload['student_repo_full_name'],
-                                  branch="main",
-                                  folder_to_download=f"{chapter}/{assignment}",
-                                  destination_folder=f"{assignment_folder}/student")
-        # Remove the 'Program.cs' file from the solution
-        os.remove(os.path.join(assignment_folder, "solution",
-                               chapter, assignment, "consoleapp", "Program.cs"))
-        # Copy the Program.cs file from the student to the solution
-        shutil.copy(os.path.join(assignment_folder, "student", chapter, assignment, "consoleapp", "Program.cs"),
-                    os.path.join(assignment_folder, "solution", chapter, assignment, "consoleapp",
-                                 "Program.cs"))
-        # Run the tests
-        test_command = f"dotnet test {assignment_folder}/solution/{chapter}/{assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\" --blame-hang-timeout 10m --blame-hang-dump-type mini --blame-hang"
-        rc, output = run_command(test_command)
-        # Write the log to s3
-        log_filename = f"{message_id}_{assignment_name}.log"
-        write_log_to_s3(output, log_filename)
-        path_to_result_xml = f"{assignment_folder}/solution/{chapter}/{assignment}/test/TestResults/result.xml"
-        # Create a report
-        data = get_mustache_data(path_to_result_xml, assignment_name)
-        path_to_report = generate_html_report(
-            template_path=os.path.join(TMP_FOLDER, "tm-autograder-config", "report-templates", "console_app.html"),
-            output_path=f"{assignment_folder}/grader-report-{push_timestamp}.html",
-            data=data)
-        return data.grade, path_to_report
-    except Exception as e:
-        print(f"Error while processing {assignment_name}: {e}")
+    # try:
+    #     # Download the solution folder
+    #     download_folder_from_repo(GITHUB_ACCESS_TOKEN, repo_full_name=payload['solution_repo_full_name'],
+    #                               branch="main",
+    #                               folder_to_download=f"{chapter}/{assignment}",
+    #                               destination_folder=f"{assignment_folder}/solution")
+    #     # Download the students submission
+    #     download_folder_from_repo(GITHUB_ACCESS_TOKEN, repo_full_name=payload['student_repo_full_name'],
+    #                               branch="main",
+    #                               folder_to_download=f"{chapter}/{assignment}",
+    #                               destination_folder=f"{assignment_folder}/student")
+    #     # Remove the 'Program.cs' file from the solution
+    #     os.remove(os.path.join(assignment_folder, "solution",
+    #                            chapter, assignment, "consoleapp", "Program.cs"))
+    #     # Copy the Program.cs file from the student to the solution
+    #     shutil.copy(os.path.join(assignment_folder, "student", chapter, assignment, "consoleapp", "Program.cs"),
+    #                 os.path.join(assignment_folder, "solution", chapter, assignment, "consoleapp",
+    #                              "Program.cs"))
+    #     # Run the tests
+    #     test_command = f"dotnet test {assignment_folder}/solution/{chapter}/{assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\" --blame-hang-timeout 10m --blame-hang-dump-type mini --blame-hang"
+    #     rc, output = run_command(test_command)
+    #     # Write the log to s3
+    #     log_filename = f"{message_id}_{assignment_name}.log"
+    #     write_log_to_s3(output, log_filename)
+    #     path_to_result_xml = f"{assignment_folder}/solution/{chapter}/{assignment}/test/TestResults/result.xml"
+    #     # Create a report
+    #     data = get_mustache_data(path_to_result_xml, assignment_name)
+    #     path_to_report = create_html_report(
+    #         path_to_template=os.path.join(TMP_FOLDER, "tm-autograder-config", "report-templates", "console_app.html"),
+    #         output_path=f"{assignment_folder}/grader-report-{push_timestamp}.html",
+    #         data=data)
+    #     return data.grade, path_to_report
+    # except Exception as e:
+    #     print(f"Error while processing {assignment_name}: {e}")
+    pass
 
 
 def grade_console_app_with_models(student_repo_path, solution_repo_path, assignment_config):
@@ -234,17 +238,22 @@ def grade_console_app_with_models(student_repo_path, solution_repo_path, assignm
         test_command = f"dotnet test {path_to_solution_assignment}/test/test.csproj -l:\"trx;LogFileName=result.xml\" --blame-hang-timeout 10m --blame-hang-dump-type mini --blame-hang"
         rc, output = run_command(test_command)
         path_to_result_xml = f"{path_to_solution_assignment}/test/TestResults/result.xml"
-        # Create a report
-        data = get_mustache_data(path_to_result_xml, assignment_name, "TODO", output)
-        print(data.to_json())
+        # Get the unit test result object
+        unittest_result_obj = transform_xml_to_unittest_result(path_to_result_xml)
+        # Transform the unit test result object to a mustache data object
+        mustache_data = transform_to_mustache_dotnet_data(unittest_result_obj) \
+            if unittest_result_obj is not None \
+            else get_empty_mustache_dotnet_data(assignment_name, "TODO", output)
+        io_config = get_io_config(os.path.join(path_to_solution_assignment, "test", "ioConfig.json"))
+        mustache_data = add_inputs_outputs_to_mustache_data(mustache_data, io_config)
+        print(mustache_data.to_json())
         # Get the current timestamp as a string
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        path_to_report = generate_html_report(
-            template_path=os.path.join(TMP_FOLDER, "tm-autograder-config", "report-templates",
-                                       "console_app_with_models.html"),
+        path_to_report = create_html_report(
+            path_to_template=os.path.join("grader-html-reports", "dotnet_including_models.html"),
             output_path=f"{TMP_FOLDER}/report-{timestamp}.html",
-            data=data.to_dict())
-        return data.grade, path_to_report
+            data=mustache_data.to_dict())
+        return mustache_data.grade, path_to_report
     except Exception as e:
         print(f"Error while processing {assignment_name}: {e}")
 
