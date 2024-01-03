@@ -1,10 +1,13 @@
 import json
 import os
 import boto3
-
 from src.payload_helper import get_changed_files
 
 sqs = boto3.client('sqs')
+ssm = boto3.client('ssm')
+
+CONFIG_DICT = {}
+
 QUEUE_URL = os.environ.get("GRADER_DELIVERY_QUEUE_URL")
 
 
@@ -58,19 +61,32 @@ def validate_request(request):
     # Check if the path parameters contain an id
     if 'id' not in path_params:
         raise Exception("No id found in path parameters, aborting")
-    path_id = path_params['id']
-    # Check if the id can be found in the config file, and thus matches a valid Github classroom assignment'
-    # TODO: Read this JSON from actual s3 storage
-    config = json.load(open(os.path.join("s3-mock", "config.json")))
-    if path_id not in config:
-        raise Exception("No config found for id: {}, aborting".format(path_id))
-    return config[path_id]
+    classroom_assignment_id = path_params['id']
+    # Get the config from secret manager if it is not already cached in the global dict
+    if classroom_assignment_id not in CONFIG_DICT:
+        CONFIG_DICT[classroom_assignment_id] = get_config(classroom_assignment_id)
+    # Return the config
+    return classroom_assignment_id, CONFIG_DICT[classroom_assignment_id]
 
 
 def create_grading_request(request_body):
-    sqs.send_message(
-        QueueUrl=QUEUE_URL,
-        MessageBody=json.dumps(request_body)
-    )
-    pass
-    
+    """
+    Creates a grading request on the GradingQueue
+    @param request_body:
+    @return: The message id of the created message
+    """
+    response = sqs.send_message(QueueUrl=QUEUE_URL, MessageBody=json.dumps(request_body))
+    return response['MessageId']
+
+
+def get_config(classroom_assignment_id):
+    """
+    Get the config for the given classroom assignment id from the secret manager
+    @param classroom_assignment_id: The id of the classroom assignment
+    """
+    try:
+        secret_response = ssm.get_parameter(
+            Name=f'/tm-autograder/github-classroom-assignment/{classroom_assignment_id}/config', WithDecryption=True)
+        return json.loads(secret_response['Parameter']['Value'])
+    except Exception as e:
+        raise Exception(f"Error getting config for {classroom_assignment_id}: {e}")
