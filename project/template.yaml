@@ -114,6 +114,13 @@ Resources:
               - Effect: Allow
                 Action: 'ssm:GetParameter'
                 Resource: "*"
+        - PolicyName: "TmAutograderWriteDynamoDB"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+            - Effect: Allow
+              Action: 'dynamodb:PutItem'
+              Resource: !GetAtt TmAutograderRequestTable.Arn
 
   # Role for accessing the S3 bucket
   TmAutograderLogBucketWriteOnlyRole:
@@ -166,12 +173,12 @@ Resources:
   TmAutograderRequestTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "${Env}-tm-autograder-request-table"
+      TableName: !Sub "${Env}-tm-autograder-request-table-2"
       AttributeDefinitions:
         - AttributeName: Id
           AttributeType: S
         - AttributeName: Timestamp
-          AttributeType: N
+          AttributeType: S
       KeySchema:
         - AttributeName: Id
           KeyType: HASH

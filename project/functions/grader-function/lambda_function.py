@@ -37,6 +37,7 @@ boto3_session = Boto3SessionProvider(
 sqs = boto3_session.client('sqs')
 ssm = boto3_session.client('ssm')
 s3 = boto3_session.client('s3')
+dynamodb = boto3_session.client('dynamodb')
 
 secret_response = ssm.get_parameter(
     Name=parameter_store_config.secret_name,
@@ -55,91 +56,92 @@ APPLICATION_CONSOLE_WITH_MODELS = "console_with_models"
 # Print the env variable
 print(f"CANVAS_API_URL: {CANVAS_API_URL}")
 
-
 def process_record(record):
     message_id = record["MessageId"]
-    # Convert the record to a JSON object
-    payload = json.loads(record["Body"])
-    # Create canvas credentials
-    canvas_credentials = {'api_key': CANVAS_API_KEY, 'api_url': CANVAS_API_URL}
-    # Create a canvas api manager
-    canvas_api_manager = CanvasAPIManager(canvas_credentials, payload['canvas_course_id'])
-    # Download the report templates from the config repo
-    download_autograder_config()
-    # Get the student identifier
-    student_identifier = get_student_identifier_from_classroom_assignment(
-        token=GITHUB_ACCESS_TOKEN,
-        github_username=payload['student_github_username'],
-        classroom_assignment_id=payload['classroom_assignment_id']
-    )
-    # If student identifier is None, the student is not in the classroom and nothing should happen
-    if student_identifier is None or student_identifier == '':
-        print(f"Student {payload['student_github_username']} is not in the classroom. Nothing to do")
-        return
-    # Get the push timestamp
-    push_timestamp = payload['push_timestamp']
-    # Get all unique assignments to grade
-    assignments_to_grade = get_unique_assignments_to_grade(payload)
-    # Clone the student repo
-    student_repo_path = os.path.join(TMP_FOLDER, "student_repo")
-    student_repo = clone_git_repo(
-        repo_full_name=payload['student_repo_full_name'],
-        destination_folder=student_repo_path
-    )
-    # Clone the solution repo
-    solution_repo_path = os.path.join(TMP_FOLDER, "solution_repo")
-    solution_repo = clone_git_repo(
-        repo_full_name=payload['solution_repo_full_name'],
-        destination_folder=solution_repo_path
-    )
+    update_dynamodb_entry(message_id, "processing")
 
-    for assignment_to_grade in assignments_to_grade:
-        chapter = assignment_to_grade['chapter']
-        assignment = assignment_to_grade['assignment']
-        assignment_name = assignment_to_grade['assignment_name']
-
-        try:
-            # Get the according assignment from the canvas assignments
-            canvas_assignment = canvas_api_manager.get_assignment_by_name(assignment_name)
-            # Check if the assignment should be graded
-            should_grade = check_if_should_grade(canvas_assignment, assignment_to_grade, student_repo)
-            if not should_grade:
-                print(f"Should not grade {assignment_name}")
-                continue
-            # Check the application type
-            if payload['application_type'] == APPLICATION_CONSOLE:
-                # TODO: Fix this later
-                # grade, path_to_report = grade_console_app(
-                #     message_id=message_id,
-                #     assignment=assignment,
-                #     assignment_folder=assignment_folder,
-                #     assignment_name=assignment_name,
-                #     chapter=chapter,
-                #     payload=payload,
-                #     push_timestamp=push_timestamp
-                # )
-                # Update the grade on Canvas
-                canvas_api_manager.update_grade(student_identifier, canvas_assignment, grade, path_to_report)
-            elif payload['application_type'] == APPLICATION_CONSOLE_WITH_MODELS:
-                # Do something with console app with models
-                grade, path_to_report = grade_console_app_with_models(
-                    student_repo_path=student_repo_path,
-                    solution_repo_path=solution_repo_path,
-                    assignment_config=assignment_to_grade
-                )
-                # Update the grade on Canvas
-                canvas_api_manager.update_grade(student_identifier, canvas_assignment, grade, path_to_report)
-                pass
-            else:
-                # Unknown application type
-                print(f"Unknown application type: {payload['application_type']}")
-                continue
-        except Exception as e:
-            print(f"Error while processing {assignment_name}: {e}")
-        finally:
-            print("Cleaning up")
-    print("Done")
-    shutil.rmtree(TMP_FOLDER)
+    # # Convert the record to a JSON object
+    # payload = json.loads(record["Body"])
+    # # Create canvas credentials
+    # canvas_credentials = {'api_key': CANVAS_API_KEY, 'api_url': CANVAS_API_URL}
+    # # Create a canvas api manager
+    # canvas_api_manager = CanvasAPIManager(canvas_credentials, payload['canvas_course_id'])
+    # # Download the report templates from the config repo
+    # download_autograder_config()
+    # # Get the student identifier
+    # student_identifier = get_student_identifier_from_classroom_assignment(
+    #     token=GITHUB_ACCESS_TOKEN,
+    #     github_username=payload['student_github_username'],
+    #     classroom_assignment_id=payload['classroom_assignment_id']
+    # )
+    # # If student identifier is None, the student is not in the classroom and nothing should happen
+    # if student_identifier is None or student_identifier == '':
+    #     print(f"Student {payload['student_github_username']} is not in the classroom. Nothing to do")
+    #     return
+    # # Get the push timestamp
+    # push_timestamp = payload['push_timestamp']
+    # # Get all unique assignments to grade
+    # assignments_to_grade = get_unique_assignments_to_grade(payload)
+    # # Clone the student repo
+    # student_repo_path = os.path.join(TMP_FOLDER, "student_repo")
+    # student_repo = clone_git_repo(
+    #     repo_full_name=payload['student_repo_full_name'],
+    #     destination_folder=student_repo_path
+    # )
+    # # Clone the solution repo
+    # solution_repo_path = os.path.join(TMP_FOLDER, "solution_repo")
+    # solution_repo = clone_git_repo(
+    #     repo_full_name=payload['solution_repo_full_name'],
+    #     destination_folder=solution_repo_path
+    # )
+    #
+    # for assignment_to_grade in assignments_to_grade:
+    #     chapter = assignment_to_grade['chapter']
+    #     assignment = assignment_to_grade['assignment']
+    #     assignment_name = assignment_to_grade['assignment_name']
+    #
+    #     try:
+    #         # Get the according assignment from the canvas assignments
+    #         canvas_assignment = canvas_api_manager.get_assignment_by_name(assignment_name)
+    #         # Check if the assignment should be graded
+    #         should_grade = check_if_should_grade(canvas_assignment, assignment_to_grade, student_repo)
+    #         if not should_grade:
+    #             print(f"Should not grade {assignment_name}")
+    #             continue
+    #         # Check the application type
+    #         if payload['application_type'] == APPLICATION_CONSOLE:
+    #             # TODO: Fix this later
+    #             # grade, path_to_report = grade_console_app(
+    #             #     message_id=message_id,
+    #             #     assignment=assignment,
+    #             #     assignment_folder=assignment_folder,
+    #             #     assignment_name=assignment_name,
+    #             #     chapter=chapter,
+    #             #     payload=payload,
+    #             #     push_timestamp=push_timestamp
+    #             # )
+    #             # Update the grade on Canvas
+    #             canvas_api_manager.update_grade(student_identifier, canvas_assignment, grade, path_to_report)
+    #         elif payload['application_type'] == APPLICATION_CONSOLE_WITH_MODELS:
+    #             # Do something with console app with models
+    #             grade, path_to_report = grade_console_app_with_models(
+    #                 student_repo_path=student_repo_path,
+    #                 solution_repo_path=solution_repo_path,
+    #                 assignment_config=assignment_to_grade
+    #             )
+    #             # Update the grade on Canvas
+    #             canvas_api_manager.update_grade(student_identifier, canvas_assignment, grade, path_to_report)
+    #             pass
+    #         else:
+    #             # Unknown application type
+    #             print(f"Unknown application type: {payload['application_type']}")
+    #             continue
+    #     except Exception as e:
+    #         print(f"Error while processing {assignment_name}: {e}")
+    #     finally:
+    #         print("Cleaning up")
+    # print("Done")
+    # shutil.rmtree(TMP_FOLDER)
 
 
 def check_if_should_grade(canvas_assignment, assignment_to_grade, repo):
@@ -266,6 +268,27 @@ def download_autograder_config():
 def write_log_to_s3(log, log_filename):
     new_file = s3.put_object(Body=log, Bucket='tm-autograder-log-bucket', Key=log_filename)
     print("File created", new_file)
+
+
+def update_dynamodb_entry(message_id, status):
+    """
+    Updates the status of a dynamodb entry with the given message_id
+    @param message_id: The message id of the entry to update
+    @param status: The new status of the entry
+    """
+    dynamodb.update_item(
+        TableName='dev-tm-autograder-request-table-2',
+        Key={
+            'Id': {'S': message_id}
+        },
+        UpdateExpression="set #s = :s",
+        ExpressionAttributeNames={
+            '#s': 'Status'
+        },
+        ExpressionAttributeValues={
+            ':s': {'S': status}
+        }
+    )
 
 
 def clone_git_repo(repo_full_name, destination_folder):

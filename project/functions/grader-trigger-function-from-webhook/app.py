@@ -1,10 +1,11 @@
+import datetime
 import json
 import os
 import boto3
-from src.payload_helper import get_changed_files
 
 sqs = boto3.client('sqs')
 ssm = boto3.client('ssm')
+dynamodb = boto3.client('dynamodb')
 
 CONFIG_DICT = {}
 
@@ -13,41 +14,64 @@ QUEUE_URL = os.environ.get("GRADER_DELIVERY_QUEUE_URL")
 
 def lambda_handler(event, context):
     try:
-        config = validate_request(event)
+        log = []
+        log.append("Received event")
+
+        try:
+            classroom_assignment_id, config = validate_request(event)
+        except Exception as e:
+            print(f"Error: {e}")
+            return {
+                "statusCode": 400,
+                "body": json.dumps({
+                    "message": f"Request did not get validated. Error: {e}",
+                }),
+            }
+        log.append("Validated request")
+        event_body = json.loads(event['body'])
+        log.append("Loaded event body")
+        log.append(event_body)
+        log.append(config)
+
+        # Create grading request body
+        grading_request_body = {
+            "canvas_course_id": config['canvas_course_id'],
+            "github_classroom_id": config['github_classroom_id'],
+            "solution_repo_full_name": config['solution_repo_full_name'],
+            "application_type": config['application_type'],
+            "student_repo_full_name": event_body['repository']['full_name'],
+            "student_github_id": event_body['sender']['id'],
+            "student_github_username": event_body['sender']['login'],
+            "push_timestamp": event_body['head_commit']['timestamp'],
+            "changed_files": get_changed_files(event_body['commits']),
+            "classroom_assignment_id": classroom_assignment_id
+        }
+        log.append("Created grading request body")
+
+        # Trigger message on GradingQueue with GradingRequest
+        message_id = create_grading_request(grading_request_body)
+        log.append("Created grading request")
+        create_dynamodb_entry(message_id, event_body['head_commit']['timestamp'], event_body['sender']['login'])
+        log.append("Created dynamodb entry")
+
+        # Finish this one
+        return {
+            "statusCode": 200,
+            "body": json.dumps({
+                "status": "success",
+                "message": "Grading request created",
+                # "location": ip.text.replace("\n", "")
+            }),
+        }
     except Exception as e:
         print(f"Error: {e}")
         return {
             "statusCode": 400,
             "body": json.dumps({
-                "message": f"Error: {e}",
+                "message": log,
+                "error": f"error: {e}"
             }),
         }
-    event_body = json.loads(event['body'])
-
-    # Create grading request body
-    grading_request_body = {
-        "canvas_course_id": config['canvas_course_id'],
-        "github_classroom_id": config['github_classroom_id'],
-        "solution_repo_full_name": config['solution_repo_full_name'],
-        "application_type": config['application_type'],
-        "student_repo_full_name": event_body['repository']['full_name'],
-        "student_github_id": event_body['sender']['id'],
-        "push_timestamp": event_body['head_commit']['timestamp'],
-        "changed_files": get_changed_files(event_body['commits'])
-    }
-
-    # Trigger message on GradingQueue with GradingRequest
-    create_grading_request(grading_request_body)
-
-    # Finish this one
-    return {
-        "statusCode": 200,
-        "body": json.dumps({
-            "status": "success",
-            "message": "Grading request created",
-            # "location": ip.text.replace("\n", "")
-        }),
-    }
 
 
 def validate_request(request):
@@ -90,3 +114,29 @@ def get_config(classroom_assignment_id):
         return json.loads(secret_response['Parameter']['Value'])
     except Exception as e:
         raise Exception(f"Error getting config for {classroom_assignment_id}: {e}")
+
+
+def get_changed_files(commits):
+    files = list()
+
+    for commit in commits:
+        files.extend(commit["added"])
+        files.extend(commit["modified"])
+        files.extend(commit["removed"])
+
+    return files
+
+
+def create_dynamodb_entry(queue_item_id, push_timestamp, github_username):
+    dynamodb.put_item(
+        TableName='dev-tm-autograder-request-table-2',
+        Item={
+            # Create a unique id for the item
+            'Id': {'S': queue_item_id},
+            # Get the current time in UTC
+            'Timestamp': {'S': str(datetime.datetime.utcnow().timestamp())},
+            'GithubPushTimestamp': {'S': push_timestamp},
+            'GithubUsername': {'S': github_username},
+            'Status': {'S': 'Grading request created'}
+        }
+    )
