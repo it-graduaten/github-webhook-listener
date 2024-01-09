@@ -56,9 +56,10 @@ APPLICATION_CONSOLE_WITH_MODELS = "console_with_models"
 # Print the env variable
 print(f"CANVAS_API_URL: {CANVAS_API_URL}")
 
+
 def process_record(record):
     message_id = record["MessageId"]
-    update_dynamodb_entry(message_id, "Grading started")
+    update_dynamodb_entry(message_id, "Processing")
     # Convert the record to a JSON object
     payload = json.loads(record["Body"])
     # Create canvas credentials
@@ -76,6 +77,7 @@ def process_record(record):
     # If student identifier is None, the student is not in the classroom and nothing should happen
     if student_identifier is None or student_identifier == '':
         print(f"Student {payload['student_github_username']} is not in the classroom. Nothing to do")
+        update_dynamodb_entry(message_id, "Done", "Student not in classroom")
         return
     # Get the push timestamp
     push_timestamp = payload['push_timestamp']
@@ -103,7 +105,7 @@ def process_record(record):
             # Get the according assignment from the canvas assignments
             canvas_assignment = canvas_api_manager.get_assignment_by_name(assignment_name)
             # Check if the assignment should be graded
-            should_grade = check_if_should_grade(canvas_assignment, assignment_to_grade, student_repo)
+            should_grade, reason = check_if_should_grade(canvas_assignment, assignment_to_grade, student_repo)
             if not should_grade:
                 print(f"Should not grade {assignment_name}")
                 continue
@@ -139,8 +141,8 @@ def process_record(record):
             print(f"Error while processing {assignment_name}: {e}")
         finally:
             print("Cleaning up")
+            update_dynamodb_entry(message_id, "Done", "Grade posted")
     print("Done")
-    update_dynamodb_entry(message_id, "Grading finished")
     shutil.rmtree(TMP_FOLDER)
 
 
@@ -150,7 +152,7 @@ def check_if_should_grade(canvas_assignment, assignment_to_grade, repo):
     # If the assignment is not found, it can be skipped
     if canvas_assignment is None:
         print(f'Could not find assignment with name {assignment}. Skipped grading for this assignment')
-        return False
+        return False, "Could not find assignment"
     print("Getting last commit for ", f"{chapter}/{assignment}")
     # Get the moment of the last change in the assignment
     last_commit_time = get_last_commit_time_for_folder(repo, f"{chapter}/{assignment}")
@@ -162,7 +164,7 @@ def check_if_should_grade(canvas_assignment, assignment_to_grade, repo):
         if canvas_assignment_due_at < last_commit_time:
             print(
                 f'Assignment {assignment} was due before the push timestamp, skipping')
-            return False
+            return False, "Assignment was due before push timestamp"
     return True
 
 
@@ -275,6 +277,7 @@ def update_dynamodb_entry(message_id, status, substatus=None):
     Updates the status of a dynamodb entry with the given message_id
     @param message_id: The message id of the entry to update
     @param status: The new status of the entry
+    @param substatus: The new substatus of the entry
     """
     print("Updating dynamodb entry", message_id, "with status", status)
     dynamodb.update_item(
@@ -282,12 +285,14 @@ def update_dynamodb_entry(message_id, status, substatus=None):
         Key={
             'Id': {'S': message_id}
         },
-        UpdateExpression="set #s = :s",
+        UpdateExpression="set #s = :s, #ss = :ss",
         ExpressionAttributeNames={
-            '#s': 'Status'
+            '#s': 'Status',
+            '#ss': 'SubStatus'
         },
         ExpressionAttributeValues={
-            ':s': {'S': status}
+            ':s': {'S': status},
+            ':ss': {'S': substatus} if substatus is not None else {'NULL': True}
         }
     )
 

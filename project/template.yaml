@@ -173,20 +173,16 @@ Resources:
   TmAutograderRequestTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub "${Env}-tm-autograder-request-table-2"
+      TableName: !Sub "${Env}-tm-autograder-request-table"
       AttributeDefinitions:
         - AttributeName: Id
-          AttributeType: S
-        - AttributeName: Timestamp
           AttributeType: S
       KeySchema:
         - AttributeName: Id
           KeyType: HASH
-        - AttributeName: Timestamp
-          KeyType: RANGE
       TimeToLiveSpecification:
-        AttributeName: Timestamp
+        AttributeName: DeleteAtTimestamp
         Enabled: true
       ProvisionedThroughput:
         ReadCapacityUnits: 5
-        WriteCapacityUnits: 2
+        WriteCapacityUnits: 10

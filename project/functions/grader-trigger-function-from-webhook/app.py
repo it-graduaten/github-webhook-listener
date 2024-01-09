@@ -60,6 +60,7 @@ def lambda_handler(event, context):
             "body": json.dumps({
                 "status": "success",
                 "message": "Grading request created",
+                "message_id": message_id
                 # "location": ip.text.replace("\n", "")
             }),
         }
@@ -129,14 +130,15 @@ def get_changed_files(commits):
 
 def create_dynamodb_entry(queue_item_id, push_timestamp, github_username):
     dynamodb.put_item(
-        TableName='dev-tm-autograder-request-table-2',
+        TableName='dev-tm-autograder-request-table',
         Item={
             # Create a unique id for the item
             'Id': {'S': queue_item_id},
-            # Get the current time in UTC
-            'Timestamp': {'S': str(datetime.datetime.utcnow().timestamp())},
+            # Delete at should be the current timestamp + 5 days
+            'DeleteAtTimestamp': {'N': str(datetime.datetime.utcnow().timestamp() + 432000)},
             'GithubPushTimestamp': {'S': push_timestamp},
             'GithubUsername': {'S': github_username},
-            'Status': {'S': 'Grading request created'}
+            'Status': {'S': 'Requested'},
+            "CreatedAtTimestamp": {'N': str(datetime.datetime.utcnow().timestamp())}
         }
     )
