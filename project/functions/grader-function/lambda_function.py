@@ -38,6 +38,7 @@ sqs = boto3_session.client('sqs')
 ssm = boto3_session.client('ssm')
 s3 = boto3_session.client('s3')
 dynamodb = boto3_session.client('dynamodb')
+iot_client = boto3_session.client('iot-data')
 
 secret_response = ssm.get_parameter(
     Name=parameter_store_config.secret_name,
@@ -46,6 +47,7 @@ secret_response = ssm.get_parameter(
 parsed_secret = json.loads(secret_response['Parameter']['Value'])['Parameters']
 
 QUEUE_URL = parsed_secret["QUEUE_URL"]
+GRADER_REQUEST_TABLE_NAME = parsed_secret["GRADER_REQUEST_TABLE_NAME"]
 CANVAS_API_URL = parsed_secret["CANVAS_API_URL"]
 CANVAS_API_KEY = parsed_secret["CANVAS_API_KEY"]
 GITHUB_ACCESS_TOKEN = parsed_secret["GITHUB_ACCESS_TOKEN"]
@@ -59,9 +61,10 @@ print(f"CANVAS_API_URL: {CANVAS_API_URL}")
 
 def process_record(record):
     message_id = record["MessageId"]
-    update_dynamodb_entry(message_id, "Processing")
     # Convert the record to a JSON object
     payload = json.loads(record["Body"])
+    # Update the status of the entry to processing
+    update_entry_status(message_id, "Processing", None, payload['student_github_username'])
     # Create canvas credentials
     canvas_credentials = {'api_key': CANVAS_API_KEY, 'api_url': CANVAS_API_URL}
     # Create a canvas api manager
@@ -77,7 +80,7 @@ def process_record(record):
     # If student identifier is None, the student is not in the classroom and nothing should happen
     if student_identifier is None or student_identifier == '':
         print(f"Student {payload['student_github_username']} is not in the classroom. Nothing to do")
-        update_dynamodb_entry(message_id, "Done", "Student not in classroom")
+        update_entry_status(message_id, "Done", "Student not in classroom", payload['student_github_username'])
         return
     # Get the push timestamp
     push_timestamp = payload['push_timestamp']
@@ -141,7 +144,7 @@ def process_record(record):
             print(f"Error while processing {assignment_name}: {e}")
         finally:
             print("Cleaning up")
-            update_dynamodb_entry(message_id, "Done", "Grade posted")
+            update_entry_status(message_id, "Done", "Grade posted", payload['student_github_username'])
     print("Done")
     shutil.rmtree(TMP_FOLDER)
 
@@ -272,28 +275,45 @@ def write_log_to_s3(log, log_filename):
     print("File created", new_file)
 
 
-def update_dynamodb_entry(message_id, status, substatus=None):
+def update_entry_status(message_id, status, substatus, github_username):
     """
-    Updates the status of a dynamodb entry with the given message_id
+    Updates the status of a grader entry with the given message_id
     @param message_id: The message id of the entry to update
     @param status: The new status of the entry
     @param substatus: The new substatus of the entry
+    @param github_username: The GitHub username of the student
     """
-    print("Updating dynamodb entry", message_id, "with status", status)
-    dynamodb.update_item(
-        TableName='dev-tm-autograder-request-table',
+    print("Updating entry status")
+    db_res = dynamodb.update_item(
+        TableName=GRADER_REQUEST_TABLE_NAME,
         Key={
-            'Id': {'S': message_id}
+            'Id': {
+                'S': message_id
+            }
         },
         UpdateExpression="set #s = :s, #ss = :ss",
         ExpressionAttributeNames={
-            '#s': 'Status',
-            '#ss': 'SubStatus'
+            "#s": "status",
+            "#ss": "substatus"
         },
         ExpressionAttributeValues={
-            ':s': {'S': status},
-            ':ss': {'S': substatus} if substatus is not None else {'NULL': True}
+            ':s': {
+                'S': status
+            },
+            ':ss': {
+                'S': "" if substatus is None else substatus
+            }
         }
+    )
+    mqtt_res = iot_client.publish(
+        topic='server',
+        qos=1,
+        payload=json.dumps({
+            "message_id": message_id,
+            "status": status,
+            "substatus": substatus,
+            "github_username": github_username
+        })
     )
 
 

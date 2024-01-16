@@ -6,10 +6,12 @@ import boto3
 sqs = boto3.client('sqs')
 ssm = boto3.client('ssm')
 dynamodb = boto3.client('dynamodb')
+iot_client = boto3.client('iot-data')
 
 CONFIG_DICT = {}
 
 QUEUE_URL = os.environ.get("GRADER_DELIVERY_QUEUE_URL")
+GRADER_REQUEST_TABLE_NAME = os.environ.get("GRADER_REQUEST_TABLE_NAME")
 
 
 def lambda_handler(event, context):
@@ -130,7 +132,7 @@ def get_changed_files(commits):
 
 def create_dynamodb_entry(queue_item_id, push_timestamp, github_username):
     dynamodb.put_item(
-        TableName='dev-tm-autograder-request-table',
+        TableName=GRADER_REQUEST_TABLE_NAME,
         Item={
             # Create a unique id for the item
             'Id': {'S': queue_item_id},
@@ -141,4 +143,14 @@ def create_dynamodb_entry(queue_item_id, push_timestamp, github_username):
             'Status': {'S': 'Requested'},
             "CreatedAtTimestamp": {'N': str(datetime.datetime.utcnow().timestamp())}
         }
+    )
+    mqtt_res = iot_client.publish(
+        topic='server',
+        qos=1,
+        payload=json.dumps({
+            "message_id": queue_item_id,
+            "status": 'Requested',
+            "substatus": 'Waiting for resources',
+            "github_username": github_username
+        })
     )

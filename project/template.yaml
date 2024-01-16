@@ -43,6 +43,34 @@ Resources:
       Properties:
         ThingName: !FindInMap [ResourceNames, !Ref Env, ThingName]
 
+  # MQTT Lambda authorizer function
+  TmAutograderAuthorizerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/grader-mqtt-authorizer-function/
+      Handler: index.handler
+      Runtime: nodejs16.x
+      Architectures:
+        - x86_64
+
+  # AWS IoT Authorizer
+  TmAutograderAuthorizer:
+    Type: AWS::IoT::Authorizer
+    Properties:
+      AuthorizerName: !Sub '${Env}-tm-autograder-authorizer'
+      AuthorizerFunctionArn: !GetAtt TmAutograderAuthorizerFunction.Arn
+      SigningDisabled: true
+      Status: ACTIVE
+
+  # Permission for Lambda to access IoT
+  TmAutograderAuthorizerFunctionIoTPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt TmAutograderAuthorizerFunction.Arn
+      Principal: iot.amazonaws.com
+      SourceArn: !GetAtt TmAutograderAuthorizer.Arn
+
   # Lambda function to trigger grader from a GitHub webhook
   TmAutograderTriggerFromWebhookFunction:
     Type: AWS::Serverless::Function 
@@ -62,6 +90,7 @@ Resources:
       Environment:
         Variables:
           GRADER_DELIVERY_QUEUE_URL: !Ref TmAutograderQueue
+          GRADER_REQUEST_TABLE_NAME: !Ref TmAutograderRequestTable
 
   # Lambda function to trigger grader from a GitHub action
   TmAutograderTriggerFromActionFunction:
@@ -82,6 +111,27 @@ Resources:
       Environment:
         Variables:
           GRADER_DELIVERY_QUEUE_URL: !Ref TmAutograderQueue
+          GRADER_REQUEST_TABLE_NAME: !Ref TmAutograderRequestTable
+
+  # Lambda function to expose the dynamoDB table
+  TmAutograderExposeTableFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/grader-expose-table-function/
+      Handler: app.lambda_handler
+      Runtime: python3.11
+      Role: !GetAtt TmAutograderRole.Arn
+      Architectures:
+          - x86_64
+      Events:
+        ExposeTable:
+          Type: Api
+          Properties:
+            Path: /grader-requests
+            Method: get
+      Environment:
+        Variables:
+          GRADER_REQUEST_TABLE_NAME: !Ref TmAutograderRequestTable
 
   # Iam role for the grader lambda function
   TmAutograderRole:
@@ -121,6 +171,18 @@ Resources:
             - Effect: Allow
               Action: 'dynamodb:PutItem'
               Resource: !GetAtt TmAutograderRequestTable.Arn
+        - PolicyName: "TmAutograderPublishToMqtt"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'iot:Connect'
+                  - 'iot:Publish'
+                Resource:
+                  - "arn:aws:iot:eu-central-1:947732858245:topic/server"
+                  - "arn:aws:iot:*:947732858245:client/*"
+
 
   # Role for accessing the S3 bucket
   TmAutograderLogBucketWriteOnlyRole:
