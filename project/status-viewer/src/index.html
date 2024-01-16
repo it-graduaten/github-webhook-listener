@@ -19,7 +19,6 @@
     <div class="flex-none">
       <ul class="menu menu-horizontal px-1">
         <label class="swap swap-rotate">
-
           <!-- this hidden checkbox controls the state -->
           <input type="checkbox" class="theme-controller" value="corporate" />
 
@@ -34,7 +33,6 @@
             <path
               d="M21.64,13a1,1,0,0,0-1.05-.14,8.05,8.05,0,0,1-3.37.73A8.15,8.15,0,0,1,9.08,5.49a8.59,8.59,0,0,1,.25-2A1,1,0,0,0,8,2.36,10.14,10.14,0,1,0,22,14.05,1,1,0,0,0,21.64,13Zm-9.5,6.69A8.14,8.14,0,0,1,7.08,5.22v.27A10.15,10.15,0,0,0,17.22,15.63a9.79,9.79,0,0,0,2.1-.22A8.11,8.11,0,0,1,12.14,19.73Z" />
           </svg>
-
         </label>
       </ul>
     </div>
@@ -119,33 +117,33 @@
           <div class="form-control">
             <label class="cursor-pointer label">
               <span class="label-text">Requested</span>
-              <input type="checkbox" class="toggle toggle-info" checked />
+              <input type="checkbox" class="toggle toggle-info" checked id="check-requested" />
             </label>
           </div>
           <div class="form-control">
             <label class="cursor-pointer label">
               <span class="label-text">Processing</span>
-              <input type="checkbox" class="toggle toggle-warning" checked />
+              <input type="checkbox" class="toggle toggle-warning" checked id="check-processing" />
             </label>
           </div>
           <div class="form-control">
             <label class="cursor-pointer label">
               <span class="label-text">Done</span>
-              <input type="checkbox" class="toggle toggle-success" checked />
+              <input type="checkbox" class="toggle toggle-success" checked id="check-done" />
             </label>
           </div>
           <div class="form-control">
             <label class="cursor-pointer label">
               <span class="label-text">Message ID</span>
               <input type="text" placeholder="Type here" class="input input-bordered input-sm w-full max-w-xs"
-                autocomplete="off" />
+                id="input-message-id" autocomplete="off" />
             </label>
           </div>
           <div class="form-control">
             <label class="cursor-pointer label">
               <span class="label-text">Github username</span>
               <input type="text" data-lpignore="true" placeholder="Type here" autocomplete="off"
-                class="input input-bordered input-sm w-full max-w-xs" />
+                id="input-github-username" class="input input-bordered input-sm w-full max-w-xs" />
             </label>
           </div>
           <div class="form-control">
@@ -155,7 +153,8 @@
                 <path stroke-linecap="round" stroke-linejoin="round"
                   d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
               </svg>
-              Clear filter</button>
+              Clear filter
+            </button>
           </div>
         </div>
       </div>
