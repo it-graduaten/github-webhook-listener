@@ -64,7 +64,7 @@ def process_record(record):
     # Convert the record to a JSON object
     payload = json.loads(record["Body"])
     # Update the status of the entry to processing
-    update_entry_status(message_id, "Processing", None, payload['student_github_username'])
+    update_entry_status(message_id, "Processing", "Grading started", payload['student_github_username'])
     # Create canvas credentials
     canvas_credentials = {'api_key': CANVAS_API_KEY, 'api_url': CANVAS_API_URL}
     # Create a canvas api manager
