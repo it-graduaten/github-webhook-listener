@@ -99,12 +99,17 @@ def process_record(record):
         destination_folder=solution_repo_path
     )
 
+    assignment_counter = 1
+    # Get amount of assignments_to_grade
+    total_assignments_to_grade = len(assignments_to_grade)
+
     for assignment_to_grade in assignments_to_grade:
         chapter = assignment_to_grade['chapter']
         assignment = assignment_to_grade['assignment']
         assignment_name = assignment_to_grade['assignment_name']
 
         try:
+            update_entry_status(message_id, "Processing", f"Grading {assignment_counter}/{total_assignments_to_grade}", payload['student_github_username'])
             # Get the according assignment from the canvas assignments
             canvas_assignment = canvas_api_manager.get_assignment_by_name(assignment_name)
             # Check if the assignment should be graded
@@ -144,8 +149,9 @@ def process_record(record):
             print(f"Error while processing {assignment_name}: {e}")
         finally:
             print("Cleaning up")
-            update_entry_status(message_id, "Done", "Grade posted", payload['student_github_username'])
+            assignment_counter += 1
     print("Done")
+    update_entry_status(message_id, "Done", "All grades posted", payload['student_github_username'])
     shutil.rmtree(TMP_FOLDER)
 
 
